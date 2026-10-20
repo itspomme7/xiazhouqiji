@@ -8,6 +8,10 @@ const NOTES = db.collection('notes');
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_STAGE_BYTES = 192 * 1024;
 const MAX_IMAGE_PARTS = 16;
+const LIST_PAGE_SIZE = 50;
+const DETAIL_BLOCK_BUDGET = 512 * 1024;
+const MAX_CLIENT_RESPONSE_BYTES = 900 * 1024;
+const MAX_MANIFEST_NOTES = 500;
 function stageOwner(openid) { return crypto.createHash('sha256').update(openid).digest('hex').slice(0,20); }
 function stagedFileID(fileID,owner) {
   return typeof fileID === 'string' && fileID.startsWith('cloud://') &&
@@ -47,17 +51,144 @@ function normalizeRecord(raw) {
   return { title, category, status, blocks };
 }
 function validId(id) { return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(id); }
-async function hydrate(note) {
-  const n = { ...note, id: note._id };
-  delete n._id;
-  const images = (n.blocks || []).filter(b => b.type === 'image' && /^cloud:\/\//.test(b.content));
-  if (!images.length) return n;
-  try {
-    const urls = await cloud.getTempFileURL({ fileList: images.map(b => b.content) });
-    const mapped = new Map((urls.fileList || []).map(f => [f.fileID, f.tempFileURL]));
-    n.blocks = n.blocks.map(b => b.type === 'image' ? { ...b, displayUrl: mapped.get(b.content) || '' } : b);
-  } catch (e) { n.blocks = n.blocks.map(b => b.type === 'image' ? { ...b, displayUrl: '' } : b); }
-  return n;
+function truncateUtf8(value, maxBytes) {
+  const text = String(value || '');
+  if (Buffer.byteLength(text, 'utf8') <= maxBytes) return text;
+  let out = '';
+  let size = 0;
+  for (const char of text) {
+    const bytes = Buffer.byteLength(char, 'utf8');
+    if (size + bytes > maxBytes) break;
+    out += char;
+    size += bytes;
+  }
+  return out;
+}
+function noteId(note) { return String(note && (note._id || note.id) || ''); }
+function noteCore(note) {
+  return {
+    id: noteId(note), title:note.title, category:note.category, status:note.status,
+    createdAt:note.createdAt, updatedAt:note.updatedAt,
+    blocks:(note.blocks || []).map(b=>({uid:b.uid,type:b.type,content:b.content}))
+  };
+}
+function noteRevision(note) {
+  return crypto.createHash('sha256').update(JSON.stringify(noteCore(note))).digest('hex');
+}
+function manifestRevision(note) {
+  if(typeof note._backupRevision==='string'&&/^[0-9a-f]{64}$/.test(note._backupRevision)) return note._backupRevision;
+  // 兼容旧数据；所有正式写入 API 都会同步更新 updatedAt，并从本版本起写入 _backupRevision。
+  const legacy={id:noteId(note),title:note.title,category:note.category,status:note.status,createdAt:note.createdAt,updatedAt:note.updatedAt};
+  return crypto.createHash('sha256').update(JSON.stringify(legacy)).digest('hex');
+}
+function searchPreview(blocks,maxBytes) {
+  let out='';
+  for(const block of blocks) {
+    if(!block||block.type==='image') continue;
+    const separator=out?'\n':'';
+    const used=Buffer.byteLength(out,'utf8')+Buffer.byteLength(separator,'utf8');
+    if(used>=maxBytes) break;
+    const part=truncateUtf8(String(block.content||''),maxBytes-used);
+    out+=separator+part;
+    if(Buffer.byteLength(part,'utf8')<Buffer.byteLength(String(block.content||''),'utf8')) break;
+  }
+  return out;
+}
+function summaryRecord(note) {
+  const blocks = Array.isArray(note.blocks) ? note.blocks : [];
+  const first = blocks.find(b=>b && b.type === 'text') || blocks.find(b=>b && b.type === 'code');
+  const plain=first?String(first.content||'').replace(/\s+/g,' '):'图文记录';
+  return {
+    id:noteId(note), title:String(note.title || ''), category:String(note.category || '未分类'),
+    status:note.status, createdAt:note.createdAt, updatedAt:note.updatedAt,
+    summary:plain.length>60?plain.slice(0,60)+'…':plain,
+    searchText:searchPreview(blocks,3000),
+    hasImage:blocks.some(b=>b && b.type === 'image'),
+    hasCode:blocks.some(b=>b && b.type === 'code')
+  };
+}
+function sliceBlocks(note, cursor) {
+  const blocks = Array.isArray(note.blocks) ? note.blocks : [];
+  const start = Number.isSafeInteger(cursor) && cursor >= 0 ? cursor : 0;
+  if (start > blocks.length) throw Error('内容分页位置无效');
+  const selected = [];
+  let index = start;
+  while (index < blocks.length) {
+    const block = blocks[index];
+    const candidate = [...selected, block];
+    if (selected.length && Buffer.byteLength(JSON.stringify(candidate), 'utf8') > DETAIL_BLOCK_BUDGET) break;
+    if (!selected.length && Buffer.byteLength(JSON.stringify(candidate), 'utf8') > DETAIL_BLOCK_BUDGET) {
+      throw Error('单个内容块超过详情传输限制');
+    }
+    selected.push(block);
+    index++;
+  }
+  return { blocks:selected, nextCursor:index < blocks.length ? index : null };
+}
+async function hydrateBlocks(blocks) {
+  const fileIDs = Array.from(new Set((blocks || [])
+    .filter(b=>b && b.type === 'image' && /^cloud:\/\//.test(b.content)).map(b=>b.content)));
+  if (!fileIDs.length) return blocks;
+  const mapped = new Map();
+  for (let start=0; start<fileIDs.length; start+=50) {
+    try {
+      const urls = await cloud.getTempFileURL({ fileList:fileIDs.slice(start,start+50) });
+      (urls.fileList || []).forEach(f=>mapped.set(f.fileID, f.tempFileURL || ''));
+    } catch (_) { /* 当前批次保持空 URL，调用方可显示加载失败 */ }
+  }
+  return blocks.map(b=>b.type === 'image' ? {...b,displayUrl:mapped.get(b.content) || ''} : b);
+}
+function responseBytes(value){return Buffer.byteLength(JSON.stringify(value),'utf8');}
+function fitDetailResponse(base,blocks,start,nextCursor) {
+  const fitted=blocks.slice();
+  let next=nextCursor;
+  let result={...base,nextCursor:next,note:{...base.note,blocks:fitted}};
+  while(responseBytes(result)>MAX_CLIENT_RESPONSE_BYTES&&fitted.length>1){
+    fitted.pop();next=start+fitted.length;
+    result={...base,nextCursor:next,note:{...base.note,blocks:fitted}};
+  }
+  if(responseBytes(result)>MAX_CLIENT_RESPONSE_BYTES) throw Error('单个内容块的响应超过小程序传输限制');
+  return result;
+}
+function manifestHash(entries) {
+  return crypto.createHash('sha256').update(JSON.stringify(entries)).digest('hex');
+}
+async function collectManifest() {
+  const entries = [];
+  let cursor = '';
+  for (let page=0; page<=Math.ceil(MAX_MANIFEST_NOTES/100); page++) {
+    // CloudBase transactions only support doc operations. Manifest collection scans
+    // therefore run outside transactions and use an _id cursor instead of skip,
+    // so inserts/deletes cannot silently shift a later page.
+    let query=NOTES;
+    if(cursor) query=query.where({_id:db.command.gt(cursor)});
+    query=query.orderBy('_id','asc').field({_id:true,_backupRevision:true,title:true,category:true,status:true,createdAt:true,updatedAt:true});
+    const {data=[]}=await query.limit(100).get();
+    for (const note of data) {
+      const id=noteId(note);
+      if(!id || (cursor && id<=cursor)) throw Error('备份清单游标异常，已停止备份');
+      entries.push({id:noteId(note),revision:manifestRevision(note)});
+      if (entries.length>MAX_MANIFEST_NOTES) throw Error('超过 500 篇，请分批导出；没有生成不完整备份');
+      cursor=id;
+    }
+    if (data.length<100) break;
+  }
+  return {entries,hash:manifestHash(entries)};
+}
+async function readConsistentManifest() {
+  const before=await collectManifest();
+  const after=await collectManifest();
+  if(before.entries.length!==after.entries.length||before.hash!==after.hash) {
+    throw Error('读取备份清单期间笔记库发生变化，请重新开始');
+  }
+  return after;
+}
+function errorText(error) {
+  return [error && error.code,error && error.errCode,error && error.message,error && error.errMsg,String(error || '')].join(' ');
+}
+function isDocumentNotFound(error) {
+  const raw=errorText(error);
+  return /DOCUMENT_NOT_FOUND/i.test(raw) || /document with _id .+ does not exist/i.test(raw) || /\bdocument not found\b/i.test(raw) || /^\s*not found\s*$/i.test(String(error && error.message || error || ''));
 }
 function detectImage(buf) {
   if (buf.length >= 8 && buf.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return 'png';
@@ -74,24 +205,50 @@ function restoreKey(backupId, originalId) {
   }
   return crypto.createHash('sha256').update(backupId + '|' + originalId).digest('hex').slice(0,32);
 }
+function restoreContentDigest(value) {
+  if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) throw Error('备份笔记内容摘要不正确');
+  return value;
+}
+function createRequestKey(openid,value) {
+  if(typeof value!=='string'||!/^[A-Za-z0-9_-]{16,80}$/.test(value)) throw Error('新建笔记请求标识不正确，请重新打开编辑器');
+  return crypto.createHash('sha256').update(openid+'|'+value).digest('hex');
+}
+function preservedServerFields(record) {
+  const kept={};
+  if(record&&typeof record.restoreKey==='string'&&/^[0-9a-f]{32}$/.test(record.restoreKey))kept.restoreKey=record.restoreKey;
+  if(record&&typeof record.restoreContentDigest==='string'&&/^[0-9a-f]{64}$/.test(record.restoreContentDigest))kept.restoreContentDigest=record.restoreContentDigest;
+  if(record&&typeof record._createRequestKey==='string'&&/^[0-9a-f]{64}$/.test(record._createRequestKey))kept._createRequestKey=record._createRequestKey;
+  return kept;
+}
 exports.main = async (event = {}) => {
   const { openid, isAdmin } = verifyAdmin();
   if (!openid) return fail('微信身份识别失败，请重新登录');
   const action = event.action;
   try {
     if (action === 'list') {
-      const page = Math.max(0, Math.min(50, Number(event.page)||0));
+      const page = Math.max(0, Math.min(100, Number(event.page)||0));
       const query = isAdmin ? NOTES : NOTES.where({ status: 'published' });
-      // 云数据库单次读取上限；按页读取以免笔记数量增大后丢失。
-      const { data = [] } = await query.orderBy('updatedAt','desc').skip(page * 100).limit(100).get();
-      return { ok: true, isAdmin, notes: await Promise.all(data.map(hydrate)), hasMore: data.length === 100 };
+      // UI 列表只返回有严格上限的摘要，正文和图片 URL 由详情分页接口读取。
+      const { data = [] } = await query.orderBy('updatedAt','desc').skip(page * LIST_PAGE_SIZE).limit(LIST_PAGE_SIZE).get();
+      const result={ok:true,isAdmin,notes:data.map(summaryRecord),hasMore:data.length===LIST_PAGE_SIZE};
+      if(responseBytes(result)>MAX_CLIENT_RESPONSE_BYTES) throw Error('笔记摘要响应超过安全限制');
+      return result;
     }
     if (action === 'get') {
       if (!validId(event.id)) return fail('笔记 ID 无效');
       let note;
-      try { note = (await NOTES.doc(event.id).get()).data; } catch(e) { return fail('笔记不存在'); }
+      try { note = (await NOTES.doc(event.id).get()).data; }
+      catch(e) { if (isDocumentNotFound(e)) return fail('笔记不存在'); throw e; }
       if (!note || (!isAdmin && note.status !== 'published')) return fail('笔记不存在或无权限');
-      return { ok: true, isAdmin, note: await hydrate(note) };
+      const revision=noteRevision(note);
+      if (event.revision !== undefined && event.revision !== revision) return fail('笔记读取期间发生变化，请重新加载');
+      const cursor=Number(event.cursor)||0;
+      const chunk=sliceBlocks(note,cursor);
+      const blocks=await hydrateBlocks(chunk.blocks);
+      return fitDetailResponse({ok:true,isAdmin,revision,note:{
+        id:noteId(note),title:note.title,category:note.category,status:note.status,
+        createdAt:note.createdAt,updatedAt:note.updatedAt
+      }},blocks,cursor,chunk.nextCursor);
     }
     // 以下操作只认云端 OPENID，与前端按钮/参数无关。
     if (!isAdmin) return fail('没有管理员权限');
@@ -101,13 +258,35 @@ exports.main = async (event = {}) => {
       const now = Date.now();
       let docId = id;
       let createdAt = now;
+      let serviceFields={};
       if (id) {
         if (!validId(id)) return fail('笔记 ID 无效');
-        try { const old = (await NOTES.doc(id).get()).data; if (old) createdAt = old.createdAt || now; } catch(e) { return fail('原笔记不存在'); }
-      } else docId = `n${now}_${crypto.randomBytes(6).toString('hex')}`;
-      const record = { ...clean, createdAt, updatedAt: now };
+        try {
+          const old=(await NOTES.doc(id).get()).data;
+          if(!old)return fail('原笔记不存在');
+          createdAt=old.createdAt||now;serviceFields=preservedServerFields(old);
+        } catch(e) {
+          if(isDocumentNotFound(e))return fail('原笔记不存在');
+          throw Error('读取原笔记失败，请检查网络后重试');
+        }
+      } else {
+        const requestKey=createRequestKey(openid,event.note&&event.note.createRequestId);
+        docId='n'+requestKey.slice(0,40);
+        try {
+          const old=(await NOTES.doc(docId).get()).data;
+          if(old){
+            if(old._createRequestKey!==requestKey)return fail('新建笔记请求标识冲突，未覆盖已有笔记');
+            createdAt=old.createdAt||now;serviceFields=preservedServerFields(old);
+          }
+        } catch(e) {
+          if(!isDocumentNotFound(e))throw Error('确认新建笔记状态失败，请检查网络后重试');
+        }
+        serviceFields._createRequestKey=requestKey;
+      }
+      // 客户端只能提交正文；恢复来源和幂等标识只从服务端旧记录继承。
+      const record = { ...clean, createdAt, updatedAt: now, ...serviceFields, _backupRevision:crypto.randomBytes(32).toString('hex') };
       await NOTES.doc(docId).set({ data: record });
-      return { ok: true, note: { id:docId, ...record } };
+      return { ok: true, note: summaryRecord({ _id:docId, ...record }) };
     }
     if (action === 'delete') {
       if (!validId(event.id)) return fail('笔记 ID 无效');
@@ -140,7 +319,35 @@ exports.main = async (event = {}) => {
       return { ok: true, fileID, ext, size: body.length,
         sha256: crypto.createHash('sha256').update(body).digest('hex'), tempFileURL:item.tempFileURL };
     }
-    // 云端恢复时按 192KB 分块提交，规避小程序云函数传输体积上限。
+    if (action === 'backupManifestStart') {
+      const manifest=await readConsistentManifest();
+      if (!manifest.entries.length) return fail('当前云端没有笔记可以备份');
+      const result={ok:true,entries:manifest.entries,manifestHash:manifest.hash,noteCount:manifest.entries.length};
+      if(responseBytes(result)>MAX_CLIENT_RESPONSE_BYTES) throw Error('备份清单响应超过安全限制');
+      return result;
+    }
+    if (action === 'backupNote') {
+      if(!validId(event.id)||typeof event.revision!=='string'||!/^[0-9a-f]{64}$/.test(event.revision)) return fail('备份笔记参数无效');
+      let note;
+      try {note=(await NOTES.doc(event.id).get()).data;}
+      catch(e){if(isDocumentNotFound(e)) return fail('备份期间有笔记被删除，请重新开始');throw e;}
+      if(!note||manifestRevision(note)!==event.revision) return fail('备份期间有笔记发生变化，请重新开始');
+      const contentRevision=noteRevision(note);
+      if(event.contentRevision!==undefined&&event.contentRevision!==contentRevision) return fail('备份笔记分页期间发生变化，请重新开始');
+      const chunk=sliceBlocks(note,Number(event.cursor)||0);
+      return {ok:true,revision:event.revision,contentRevision,nextCursor:chunk.nextCursor,note:{
+        id:noteId(note),title:note.title,category:note.category,status:note.status,
+        createdAt:note.createdAt,updatedAt:note.updatedAt,blocks:chunk.blocks
+      }};
+    }
+    if (action === 'backupManifestVerify') {
+      if(typeof event.manifestHash!=='string'||!/^[0-9a-f]{64}$/.test(event.manifestHash)||
+          !Number.isSafeInteger(event.noteCount)||event.noteCount<1||event.noteCount>MAX_MANIFEST_NOTES) return fail('备份清单校验参数无效');
+      const current=await readConsistentManifest();
+      if(current.entries.length!==event.noteCount||current.hash!==event.manifestHash) return fail('备份期间笔记库发生变化，未生成文件，请重新开始');
+      return {ok:true,verified:true};
+    }
+    // 日常图片上传与备份恢复都按 192KB 分块提交，规避小程序云函数传输体积上限。
     if (action === 'restoreImageChunk') {
       const base64=event.base64;
       if (typeof base64 !== 'string' || !base64.length || base64.length > Math.ceil(MAX_STAGE_BYTES*4/3) ||
@@ -193,32 +400,44 @@ exports.main = async (event = {}) => {
     // 相同备份再次恢复时，可先查询笔记是否已经恢复，避免重复上传图片。
     if (action === 'restoreCheck') {
       const key = restoreKey(event.backupId, event.originalId);
+      const contentDigest=restoreContentDigest(event.contentDigest);
       const id = 'r' + key;
       try {
         const res = await NOTES.doc(id).get();
         if (res.data) {
-          if (res.data.restoreKey === key) return { ok: true, exists: true, id };
-          return fail('恢复记录 ID 冲突，请停止操作');
+          if (res.data.restoreKey !== key) return fail('恢复记录 ID 冲突，请停止操作');
+          // 旧恢复记录没有内容摘要时无法证明内容相同，保守地停止而不是静默跳过。
+          if (!res.data.restoreContentDigest) return fail('已有恢复记录缺少内容摘要，无法安全判定重复，请人工核对');
+          if (res.data.restoreContentDigest !== contentDigest) return fail('同一恢复来源的笔记内容不一致，已停止以避免覆盖');
+          return { ok: true, exists: true, id };
         }
-      } catch (_) { /* 文档不存在时允许恢复 */ }
+      } catch (e) { if (!isDocumentNotFound(e)) throw e; }
       return { ok: true, exists: false, id };
     }
     if (action === 'restoreNote') {
       const key = restoreKey(event.backupId, event.originalId);
+      const contentDigest=restoreContentDigest(event.contentDigest);
       const id = 'r' + key;
-      try {
-        const existing = (await NOTES.doc(id).get()).data;
-        if (existing) {
-          if (existing.restoreKey === key) return { ok: true, skipped: true, id };
-          return fail('目标记录 ID 被占用，未覆盖原数据');
-        }
-      } catch (_) { /* 不存在 */ }
       const clean = normalizeRecord(event.note);
       const times = event.times || {};
       const createdAt = Number.isSafeInteger(times.createdAt) && times.createdAt > 0 ? times.createdAt : Date.now();
       const updatedAt = Number.isSafeInteger(times.updatedAt) && times.updatedAt > 0 ? times.updatedAt : createdAt;
-      await NOTES.doc(id).set({ data: { ...clean, createdAt, updatedAt, restoreKey: key } });
-      return { ok: true, id, skipped: false };
+      const backupRevision=crypto.randomBytes(32).toString('hex');
+      if(typeof db.runTransaction!=='function') throw Error('当前云数据库 SDK 不支持原子恢复，已停止写入');
+      const outcome=await db.runTransaction(async transaction=>{
+        const ref=transaction.collection('notes').doc(id);
+        let existing=null;
+        try {existing=(await ref.get()).data;}
+        catch(e){if(!isDocumentNotFound(e)) throw e;}
+        if(existing) {
+          if(existing.restoreKey!==key||!existing.restoreContentDigest||existing.restoreContentDigest!==contentDigest) return {conflict:true};
+          return {skipped:true};
+        }
+        await ref.set({data:{...clean,createdAt,updatedAt,restoreKey:key,restoreContentDigest:contentDigest,_backupRevision:backupRevision}});
+        return {skipped:false};
+      });
+      if(outcome.conflict) return fail('目标记录 ID 被占用，未覆盖原数据');
+      return {ok:true,id,skipped:outcome.skipped===true};
     }
     if (action === 'uploadImage') {
       const base64 = event.base64;

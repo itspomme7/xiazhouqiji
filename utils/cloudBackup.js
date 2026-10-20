@@ -2,6 +2,7 @@
 // 原图以 base64 嵌入 JSON，离开 CloudBase 后也可以恢复。
 // 不静默跳过失败的图片；中断时不报告“完整备份成功”。
 const cloud = require('./cloudNotes');
+const digest = require('./sha256');
 const FORMAT = 'xiazhouqiji-cloud-portable';
 const VERSION = 1;
 const MAX_NOTES = 500;
@@ -37,8 +38,17 @@ function normalizeNote(note) {
   return { id:note.id,title:note.title,category:note.category,status:note.status,
     createdAt:note.createdAt, updatedAt:note.updatedAt, blocks };
 }
-function assertAdmin() { if (!cloud.role()) throw Error('仅云端管理员可以进行备份和恢复'); }
 function progress(fn, current, total, label) { if (typeof fn === 'function') fn({ current, total, label }); }
+function restoreContentDigest(note,imagesById) {
+  const core={
+    id:note.id,title:note.title,category:note.category,status:note.status,
+    createdAt:note.createdAt,updatedAt:note.updatedAt,
+    blocks:note.blocks.map(b=>b.type==='image'
+      ? {uid:b.uid,type:b.type,sourceFileID:b.content,sha256:imagesById.get(b.content).sha256}
+      : {uid:b.uid,type:b.type,content:b.content})
+  };
+  return digest.sha256Text(JSON.stringify(core));
+}
 // 不经云函数传送图片字节：云函数只返回短期 URL，手机自行下载到临时文件。
 function promiseDownload(fileID, url) {
   return new Promise((resolve,reject)=>{
@@ -59,6 +69,8 @@ async function readCloudImage(meta) {
   try {
     const count=fs().statSync(path).size;
     if(count!==meta.size) throw Error('图片下载不完整，大小与云端不一致');
+    const actualSha=digest.sha256Bytes(fs().readFileSync(path));
+    if(actualSha!==meta.sha256) throw Error('图片下载后的 SHA256 与云端不一致');
     const base64=fs().readFileSync(path,'base64');
     if(imageBytes(base64)!==meta.size || imageType(base64)!==meta.ext) throw Error('图片内容校验失败');
     return base64;
@@ -67,10 +79,33 @@ async function readCloudImage(meta) {
     try {fs().unlinkSync(path);}catch(_) {}
   }
 }
+
+async function fetchBackupNote(entry) {
+  const blocks=[];
+  let cursor=0;
+  let metadata=null;
+  let contentRevision='';
+  for(let page=0;page<MAX_BLOCKS+1;page++) {
+    const params={id:entry.id,revision:entry.revision,cursor};
+    if(contentRevision)params.contentRevision=contentRevision;
+    const result=await cloud.request('backupNote',params);
+    if(result.revision!==entry.revision||typeof result.contentRevision!=='string'||!/^[0-9a-f]{64}$/.test(result.contentRevision)||
+        !result.note||result.note.id!==entry.id||!Array.isArray(result.note.blocks)) throw Error('备份笔记分块响应无效');
+    if(!contentRevision)contentRevision=result.contentRevision;
+    else if(result.contentRevision!==contentRevision)throw Error('备份笔记分页期间发生变化');
+    if(!metadata) metadata={...result.note,blocks:undefined};
+    blocks.push(...result.note.blocks);
+    if(result.nextCursor===null||result.nextCursor===undefined) return {...metadata,blocks};
+    if(!Number.isSafeInteger(result.nextCursor)||result.nextCursor<=cursor||result.nextCursor>MAX_BLOCKS) throw Error('备份笔记分页位置无效');
+    cursor=result.nextCursor;
+  }
+  throw Error('备份笔记分页次数超限');
+}
 // Base64 字符数按 4 字符边界拆分，每块解码后 <=192KB。
 async function uploadImageInChunks(img) {
   const chunks=[];
-  const CHUNK_CHARS=192*1024*4/3;
+  // 保留足够 JSON 包装余量，避免部分真机链路按 256KB 请求边界拒绝。
+  const CHUNK_CHARS=144*1024*4/3;
   let saved=false;
   try {
     for(let i=0;i<img.base64.length;i+=CHUNK_CHARS) {
@@ -92,11 +127,16 @@ async function uploadImageInChunks(img) {
 
 // 完成下载全部原图后才写文件；如果超额/缺图，会整体报错，避免残缺备份。
 async function exportCloudBackup(onProgress) {
-  const { notes, isAdmin } = await cloud.loadNotes();
-  if (!isAdmin) throw Error('云端没有授予管理员身份');
-  if (!notes.length) throw Error('当前云端没有笔记可以备份');
-  if (notes.length > MAX_NOTES) throw Error('超过 500 篇，请分批导出；没有生成不完整备份');
-  const cleanNotes = notes.map(normalizeNote);
+  const manifest=await cloud.request('backupManifestStart');
+  if(!Array.isArray(manifest.entries)||manifest.entries.length<1||manifest.entries.length>MAX_NOTES||
+      manifest.noteCount!==manifest.entries.length||typeof manifest.manifestHash!=='string'||!/^[0-9a-f]{64}$/.test(manifest.manifestHash)) throw Error('云端备份清单无效');
+  const cleanNotes=[];
+  for(let i=0;i<manifest.entries.length;i++) {
+    const entry=manifest.entries[i];
+    if(!entry||typeof entry.id!=='string'||typeof entry.revision!=='string'||!/^[0-9a-f]{64}$/.test(entry.revision)) throw Error('云端备份清单条目无效');
+    progress(onProgress,i,manifest.entries.length,`正在读取笔记 ${i+1}/${manifest.entries.length}`);
+    cleanNotes.push(normalizeNote(await fetchBackupNote(entry)));
+  }
   const fileIDs = Array.from(new Set(cleanNotes.flatMap(n => n.blocks.filter(b => b.type === 'image').map(b => b.content))));
   const images = [];
   let totalBytes = 0;
@@ -120,15 +160,20 @@ async function exportCloudBackup(onProgress) {
   if (json.length > MAX_JSON_BYTES) throw Error('备份包太大，未生成不完整文件');
   const fileName=`下周七集_云端完整备份_${Date.now()}.json`;
   const filePath=`${wx.env.USER_DATA_PATH}/${fileName}`;
+  // 所有笔记和图片读取完成后再进行双扫描清单核对；期间有任何增删改都不落盘。
+  await cloud.request('backupManifestVerify',{manifestHash:manifest.manifestHash,noteCount:manifest.noteCount});
   progress(onProgress,fileIDs.length,fileIDs.length,'正在写入备份文件');
   fs().writeFileSync(filePath,json,'utf8');
   // 文件落盘后再次读取文件信息，保证完整备份不超额。
   const count = fs().statSync(filePath).size;
   if (count > MAX_JSON_BYTES) { try { fs().unlinkSync(filePath); } catch (_) {} throw Error('备份文件超过 24MB，未保存'); }
-  return {filePath,fileName,noteCount:notes.length,imageCount:images.length,bytes:count};
+  return {filePath,fileName,noteCount:cleanNotes.length,imageCount:images.length,bytes:count};
 }
 function inspectCloudBackup(filePath, fileSize) {
-  if (typeof fileSize === 'number' && fileSize > MAX_JSON_BYTES) throw Error('文件超过 24MB，不能导入');
+  const actualSize=fs().statSync(filePath).size;
+  if (!Number.isSafeInteger(actualSize)||actualSize<1) throw Error('无法确认备份文件大小');
+  if (actualSize > MAX_JSON_BYTES) throw Error('文件超过 24MB，不能导入');
+  if (typeof fileSize === 'number' && fileSize !== actualSize) throw Error('备份文件大小与选择器信息不一致');
   const raw = fs().readFileSync(filePath,'utf8');
   if (raw.length > MAX_JSON_BYTES) throw Error('文件过大');
   let doc;
@@ -144,6 +189,7 @@ function inspectCloudBackup(filePath, fileSize) {
     const count=imageBytes(img.base64);
     if (count<1 || count>MAX_IMAGE_BYTES || count!==img.bytes || imageType(img.base64)!==img.ext ||
         typeof img.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(img.sha256)) throw Error('图片格式、大小或校验信息不正确');
+    if(digest.sha256Base64(img.base64)!==img.sha256) throw Error('图片 SHA256 校验失败，备份文件已损坏');
     total+=count;
     if (total>MAX_TOTAL_IMAGE_BYTES) throw Error('图片合计超过 16MB');
     imagesById.set(img.fileID,img);
@@ -171,9 +217,10 @@ async function restoreCloudBackup(doc, preservePublished, onProgress) {
   const uploaded = new Map();
   for(let i=0;i<doc.notes.length;i++) {
     const note=doc.notes[i];
+    const contentDigest=restoreContentDigest(note,doc.imagesById);
     progress(onProgress,i,doc.notes.length,`正在恢复第 ${i+1}/${doc.notes.length} 篇`);
     try {
-      const check=await cloud.request('restoreCheck',{backupId:doc.backupId,originalId:note.id});
+      const check=await cloud.request('restoreCheck',{backupId:doc.backupId,originalId:note.id,contentDigest});
       if(check.exists) { result.skipped++; continue; }
       const blocks=[];
       for(const b of note.blocks) {
@@ -191,6 +238,7 @@ async function restoreCloudBackup(doc, preservePublished, onProgress) {
         status:preservePublished ? note.status : 'draft', blocks};
       const saved=await cloud.request('restoreNote',{
         backupId:doc.backupId,originalId:note.id,note:record,
+        contentDigest,
         times:{createdAt:note.createdAt,updatedAt:note.updatedAt}
       });
       if(saved.skipped) result.skipped++; else result.created++;
