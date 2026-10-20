@@ -1,0 +1,26 @@
+# 微信开发者工具本地配置
+project.private.config.json
+project.*.private.config.json
+
+# 凭据、环境变量与密钥
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.secret
+
+# 依赖、缓存、系统文件
+node_modules/
+.miniprogram_cache/
+.DS_Store
+Thumbs.db
+*.log
+
+# 个人笔记及完整图文备份
+backups/
+exports/
+*.backup.json
+*backup-*.json
