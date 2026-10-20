@@ -10,12 +10,20 @@ const originalID='cloud://env/notes-images/image.png';
 const notes=[{id:'n_demo_1',title:'Java 学习笔记',category:'Java基础',status:'draft',createdAt:100,updatedAt:200,
   blocks:[{uid:'a1',type:'code',content:'public class Main {\n    int n=1;\n}'},{uid:'a2',type:'image',content:originalID}]}];
 const cloud=require('../utils/cloudNotes');
-const uploadedParts=new Map();const calls=[];const restored=new Set();let isAdmin=true;
+const uploadedParts=new Map();const calls=[];const restored=new Set();let isAdmin=true;let manifestChanged=false;
 cloud.loadNotes=async()=>({isAdmin,notes});cloud.role=()=>isAdmin;
 const digest=crypto.createHash('sha256').update(image).digest('hex');
+const revision='1'.repeat(64);const manifestHash='2'.repeat(64);
+const contentRevision='3'.repeat(64);
 cloud.request=async(action,params)=>{
   calls.push({action,params});
   if(!isAdmin)throw Error('没有管理员权限');
+  if(action==='backupManifestStart')return {entries:[{id:notes[0].id,revision}],manifestHash,noteCount:1};
+  if(action==='backupNote')return {revision,contentRevision,nextCursor:null,note:notes[0]};
+  if(action==='backupManifestVerify'){
+    if(manifestChanged)throw Error('备份期间笔记库发生变化，未生成文件，请重新开始');
+    assert.strictEqual(params.manifestHash,manifestHash);return {verified:true};
+  }
   if(action==='backupImage')return {ok:true,fileID:params.fileID,ext:'png',size:image.length,sha256:digest,tempFileURL:'https://example.test/photo'};
   if(action==='restoreCheck')return {exists:restored.has(params.originalId)};
   if(action==='restoreImageChunk'){
@@ -71,9 +79,19 @@ async function run(){
   evil=JSON.parse(raw);evil.images[0].base64='Rk9P';
   fs.writeFileSync(path.join(dir,'bad2.json'),JSON.stringify(evil));
   assert.throws(()=>bk.inspectCloudBackup(path.join(dir,'bad2.json')),/图片格式|图片字节|图片格式或大小/);
+  evil=JSON.parse(raw);evil.images[0].sha256='0'.repeat(64);
+  fs.writeFileSync(path.join(dir,'bad3.json'),JSON.stringify(evil));
+  assert.throws(()=>bk.inspectCloudBackup(path.join(dir,'bad3.json'),fs.statSync(path.join(dir,'bad3.json')).size),/SHA256/);
+  const oversized=path.join(dir,'oversized.json');fs.writeFileSync(oversized,Buffer.alloc(24*1024*1024+1));
+  assert.throws(()=>bk.inspectCloudBackup(oversized,1),/超过 24MB/);
+  fs.writeFileSync(tempImage,image);manifestChanged=true;
+  await assert.rejects(()=>bk.exportCloudBackup(),/发生变化/);
+  manifestChanged=false;
+  const corrupted=Buffer.from(image);corrupted[100]^=1;fs.writeFileSync(tempImage,corrupted);
+  await assert.rejects(()=>bk.exportCloudBackup(),/SHA256/);
   isAdmin=false;
   await assert.rejects(()=>bk.exportCloudBackup(),/管理员/);
   await assert.rejects(()=>bk.restoreCloudBackup(backup,false),/管理员/);
-  console.log('云备份测试通过：1.97MB 原图本地下载、含原图 JSON、分块上传和合并、恢复去重、草稿保护、访客拒绝。');
+  console.log('云备份测试通过：事务清单、原图 SHA256、超大文件预检、变动中止、分块恢复、去重和访客拒绝。');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>fs.rmSync(dir,{recursive:true,force:true}));

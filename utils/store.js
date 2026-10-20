@@ -45,10 +45,10 @@ function allNotes() { initialize(); return read(NOTES_KEY,[]).slice().sort((a,b)
 function visibleNotes() { return allNotes().filter(n=>n.status==='published'||isAdminPreview()); }
 function publishedNotes() { return allNotes().filter(n=>n.status==='published'); }
 function noteById(id) { return allNotes().find(n=>n.id===id) || null; }
-function firstText(n) { const b=(n.blocks||[]).find(x=>x.type==='text'); return b ? b.content : (n.blocks||[]).find(x=>x.type==='code')?.content || '图文记录'; }
-function summary(n) { const text=firstText(n).replace(/\s+/g,' '); return text.length>60 ? text.slice(0,60)+'…' : text; }
+function firstText(n) { const b=(n.blocks||[]).find(x=>x.type==='text'); return b ? b.content : (n.blocks||[]).find(x=>x.type==='code')?.content || n.summary || '图文记录'; }
+function summary(n) { if(typeof n.summary==='string')return n.summary;const text=firstText(n).replace(/\s+/g,' '); return text.length>60 ? text.slice(0,60)+'…' : text; }
 function formatDate(t) { const d=new Date(t); const now=new Date(); const day=d.toDateString()===now.toDateString()?'今天':`${d.getMonth()+1}月${d.getDate()}日`; return `${day} ${('0'+d.getHours()).slice(-2)}:${('0'+d.getMinutes()).slice(-2)}`; }
-function decorate(n) { return {...n, summary:summary(n), dateLabel:formatDate(n.updatedAt), hasImage:(n.blocks||[]).some(b=>b.type==='image'), hasCode:(n.blocks||[]).some(b=>b.type==='code'), isFavorite:isFavorite(n.id)}; }
+function decorate(n) { return {...n, summary:summary(n), dateLabel:formatDate(n.updatedAt), hasImage:typeof n.hasImage==='boolean'?n.hasImage:(n.blocks||[]).some(b=>b.type==='image'), hasCode:typeof n.hasCode==='boolean'?n.hasCode:(n.blocks||[]).some(b=>b.type==='code'), isFavorite:isFavorite(n.id)}; }
 function decoratedNotes(notes) {return notes.map(decorate);}
 function saveNote(note) {
   if (!isAdminPreview()) throw new Error('当前是访客预览模式');

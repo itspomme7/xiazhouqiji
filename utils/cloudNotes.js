@@ -25,7 +25,24 @@ async function loadNotes() {
   hasLoaded = true;
   return { notes:noteCache.slice(), isAdmin };
 }
-async function getNote(id) { return (await request('get',{id})).note; }
+async function getNote(id) {
+  const blocks=[];
+  let cursor=0, revision='';
+  let note=null;
+  for(let page=0;page<61;page++) {
+    const params={id,cursor};
+    if(revision) params.revision=revision;
+    const result=await request('get',params);
+    if(!result.note||!Array.isArray(result.note.blocks)||typeof result.revision!=='string') throw Error('云端笔记分页响应无效');
+    if(!revision) {revision=result.revision;note={...result.note,blocks:undefined};}
+    else if(result.revision!==revision||result.note.id!==note.id) throw Error('笔记读取期间发生变化，请重新加载');
+    blocks.push(...result.note.blocks);
+    if(result.nextCursor===null||result.nextCursor===undefined) return {...note,blocks};
+    if(!Number.isSafeInteger(result.nextCursor)||result.nextCursor<=cursor) throw Error('云端笔记分页位置无效');
+    cursor=result.nextCursor;
+  }
+  throw Error('云端笔记分页次数超限');
+}
 async function saveNote(note) { return (await request('save',{note})).note; }
 async function deleteNote(id) { await request('delete',{id}); }
 async function uploadImage(filePath) {

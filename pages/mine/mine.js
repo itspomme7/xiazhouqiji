@@ -146,20 +146,28 @@ Page({
   },
 
   // 目前仅导出文字与代码。图片是云文件引用，不是完整备份。
-  exportCloudMarkdown() {
-    if (!this.data.isAdmin) return;
-    const notes = cloud.getCached();
-    const md = notes.map(n => `# ${n.title}\n\n分类：${n.category}｜状态：${n.status}\n\n` +
-      (n.blocks || []).map(b => b.type === 'code' ? `\`\`\`java\n${b.content}\n\`\`\`\n` :
-        b.type === 'image' ? `[云端图片引用：${b.content}]\n` : `${b.content}\n`).join('\n')).join('\n---\n\n');
-    wx.setClipboardData({
-      data: md || '暂无云端笔记',
-      success: () => wx.showModal({
-        title: '已复制 Markdown',
-        content: '文字和代码已复制。图片仅保留云端引用，不包含图片文件，因此不能作为完整备份。',
-        showCancel: false
-      })
-    });
+  async exportCloudMarkdown() {
+    if (!this.data.isAdmin || this.data.backupBusy) return;
+    this.setData({backupBusy:true,backupProgress:'正在读取云端笔记'});
+    try {
+      const summaries=cloud.getCached();
+      const notes=[];
+      for(let i=0;i<summaries.length;i++){
+        this.setData({backupProgress:`正在读取第 ${i+1}/${summaries.length} 篇`});
+        notes.push(await cloud.getNote(summaries[i].id));
+      }
+      const md = notes.map(n => `# ${n.title}\n\n分类：${n.category}｜状态：${n.status}\n\n` +
+        (n.blocks || []).map(b => b.type === 'code' ? `\`\`\`java\n${b.content}\n\`\`\`\n` :
+          b.type === 'image' ? `[云端图片引用：${b.content}]\n` : `${b.content}\n`).join('\n')).join('\n---\n\n');
+      wx.setClipboardData({
+        data: md || '暂无云端笔记',
+        success: () => wx.showModal({title:'已复制 Markdown',content:'文字和代码已复制。图片仅保留云端引用，不包含图片文件，因此不能作为完整备份。',showCancel:false})
+      });
+    } catch(e) {
+      wx.showModal({title:'Markdown 导出失败',content:e.message||'请检查网络后重试',showCancel:false});
+    } finally {
+      this.setData({backupBusy:false,backupProgress:''});
+    }
   },
 
   exportMarkdown() { this.shareLegacyExport('markdown'); },
