@@ -209,6 +209,17 @@ function restoreContentDigest(value) {
   if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) throw Error('备份笔记内容摘要不正确');
   return value;
 }
+function createRequestKey(openid,value) {
+  if(typeof value!=='string'||!/^[A-Za-z0-9_-]{16,80}$/.test(value)) throw Error('新建笔记请求标识不正确，请重新打开编辑器');
+  return crypto.createHash('sha256').update(openid+'|'+value).digest('hex');
+}
+function preservedServerFields(record) {
+  const kept={};
+  if(record&&typeof record.restoreKey==='string'&&/^[0-9a-f]{32}$/.test(record.restoreKey))kept.restoreKey=record.restoreKey;
+  if(record&&typeof record.restoreContentDigest==='string'&&/^[0-9a-f]{64}$/.test(record.restoreContentDigest))kept.restoreContentDigest=record.restoreContentDigest;
+  if(record&&typeof record._createRequestKey==='string'&&/^[0-9a-f]{64}$/.test(record._createRequestKey))kept._createRequestKey=record._createRequestKey;
+  return kept;
+}
 exports.main = async (event = {}) => {
   const { openid, isAdmin } = verifyAdmin();
   if (!openid) return fail('微信身份识别失败，请重新登录');
@@ -247,11 +258,33 @@ exports.main = async (event = {}) => {
       const now = Date.now();
       let docId = id;
       let createdAt = now;
+      let serviceFields={};
       if (id) {
         if (!validId(id)) return fail('笔记 ID 无效');
-        try { const old = (await NOTES.doc(id).get()).data; if (old) createdAt = old.createdAt || now; } catch(e) { return fail('原笔记不存在'); }
-      } else docId = `n${now}_${crypto.randomBytes(6).toString('hex')}`;
-      const record = { ...clean, createdAt, updatedAt: now, _backupRevision:crypto.randomBytes(32).toString('hex') };
+        try {
+          const old=(await NOTES.doc(id).get()).data;
+          if(!old)return fail('原笔记不存在');
+          createdAt=old.createdAt||now;serviceFields=preservedServerFields(old);
+        } catch(e) {
+          if(isDocumentNotFound(e))return fail('原笔记不存在');
+          throw Error('读取原笔记失败，请检查网络后重试');
+        }
+      } else {
+        const requestKey=createRequestKey(openid,event.note&&event.note.createRequestId);
+        docId='n'+requestKey.slice(0,40);
+        try {
+          const old=(await NOTES.doc(docId).get()).data;
+          if(old){
+            if(old._createRequestKey!==requestKey)return fail('新建笔记请求标识冲突，未覆盖已有笔记');
+            createdAt=old.createdAt||now;serviceFields=preservedServerFields(old);
+          }
+        } catch(e) {
+          if(!isDocumentNotFound(e))throw Error('确认新建笔记状态失败，请检查网络后重试');
+        }
+        serviceFields._createRequestKey=requestKey;
+      }
+      // 客户端只能提交正文；恢复来源和幂等标识只从服务端旧记录继承。
+      const record = { ...clean, createdAt, updatedAt: now, ...serviceFields, _backupRevision:crypto.randomBytes(32).toString('hex') };
       await NOTES.doc(docId).set({ data: record });
       return { ok: true, note: summaryRecord({ _id:docId, ...record }) };
     }
@@ -314,7 +347,7 @@ exports.main = async (event = {}) => {
       if(current.entries.length!==event.noteCount||current.hash!==event.manifestHash) return fail('备份期间笔记库发生变化，未生成文件，请重新开始');
       return {ok:true,verified:true};
     }
-    // 云端恢复时按 192KB 分块提交，规避小程序云函数传输体积上限。
+    // 日常图片上传与备份恢复都按 192KB 分块提交，规避小程序云函数传输体积上限。
     if (action === 'restoreImageChunk') {
       const base64=event.base64;
       if (typeof base64 !== 'string' || !base64.length || base64.length > Math.ceil(MAX_STAGE_BYTES*4/3) ||

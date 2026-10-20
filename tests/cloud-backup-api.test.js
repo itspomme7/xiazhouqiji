@@ -69,16 +69,20 @@ async function run(){
   const originalDigest=contentDigest('原始备份内容');
   r=await api.main({action:'restoreCheck',...pair,contentDigest:originalDigest});assert.strictEqual(r.exists,false);
   r=await api.main({action:'restoreNote',...pair,contentDigest:originalDigest,note:notePayload('恢复')});assert.strictEqual(r.ok,true);const createdId=r.id;
+  const restoreKeyBefore=docs.get(createdId).restoreKey;
+  r=await api.main({action:'save',note:{id:createdId,...notePayload('恢复后编辑'),restoreKey:'0'.repeat(32),restoreContentDigest:'0'.repeat(64)}});assert.strictEqual(r.ok,true);
+  assert.strictEqual(docs.get(createdId).restoreKey,restoreKeyBefore);assert.strictEqual(docs.get(createdId).restoreContentDigest,originalDigest,'编辑不得清除或接受客户端伪造的恢复摘要');
+  r=await api.main({action:'restoreCheck',...pair,contentDigest:originalDigest});assert.strictEqual(r.exists,true,'恢复后编辑再导入应识别为同一篇');
   r=await api.main({action:'restoreNote',...pair,contentDigest:originalDigest,note:notePayload('恢复')});assert.strictEqual(r.skipped,true);
   r=await api.main({action:'restoreNote',...pair,contentDigest:contentDigest('被篡改的备份内容'),note:notePayload('覆盖攻击','published')});assert.strictEqual(r.ok,false);assert.strictEqual(docs.get(createdId).status,'draft');
   failNextTransactionRead=true;
-  r=await api.main({action:'restoreNote',...pair,contentDigest:originalDigest,note:notePayload('读取失败后不得覆盖','published')});assert.strictEqual(r.ok,false);assert.strictEqual(docs.get(createdId).title,'恢复');
+  r=await api.main({action:'restoreNote',...pair,contentDigest:originalDigest,note:notePayload('读取失败后不得覆盖','published')});assert.strictEqual(r.ok,false);assert.strictEqual(docs.get(createdId).title,'恢复后编辑');
   const legacy={backupId:'backup_legacy_12345',originalId:'old'};const legacyKey=contentDigest(legacy.backupId+'|'+legacy.originalId).slice(0,32);docs.set('r'+legacyKey,{restoreKey:legacyKey,...notePayload('旧恢复记录')});
   r=await api.main({action:'restoreCheck',...legacy,contentDigest:contentDigest('旧内容')});assert.strictEqual(r.ok,false,'缺少摘要的旧恢复记录必须保守失败');
   const concurrent={backupId:'backup_concurrent_123',originalId:'n2'};
   const concurrentDigest=contentDigest('并发相同原始内容');
   const results=await Promise.all([api.main({action:'restoreNote',...concurrent,contentDigest:concurrentDigest,note:notePayload('并发一')}),api.main({action:'restoreNote',...concurrent,contentDigest:concurrentDigest,note:notePayload('并发一')})]);
   assert.strictEqual(results.filter(x=>x.ok&&!x.skipped).length,1);assert.strictEqual(results.filter(x=>x.ok&&x.skipped).length,1);assert.strictEqual(docs.get(results[0].id).title,'并发一');
-  console.log('云函数测试通过：小响应、无事务集合查询、游标清单变动拒绝、图片分块校验、内容摘要冲突、读取失败中止、并发恢复不覆盖。');
+  console.log('云函数测试通过：小响应、无事务集合查询、游标清单变动拒绝、恢复标记继承、图片分块校验、读取失败中止、并发恢复不覆盖。');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>delete process.env.ADMIN_OPENID);

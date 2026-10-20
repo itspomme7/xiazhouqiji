@@ -1,4 +1,5 @@
 // 云端读写工具：服务端才拥有 notes 集合读写权限。
+const digest=require('./sha256');
 let noteCache = [];
 let isAdmin = false;
 let hasLoaded = false;
@@ -48,9 +49,25 @@ async function deleteNote(id) { await request('delete',{id}); }
 async function uploadImage(filePath) {
   const fs=wx.getFileSystemManager();
   const info=await new Promise((resolve,reject)=>fs.getFileInfo({filePath,success:resolve,fail:reject}));
+  if(!Number.isSafeInteger(info.size)||info.size<1)throw Error('图片为空或无法读取');
   if(info.size > 2*1024*1024) throw Error('单张图片不能超过 2MB，请先压缩');
   const base64 = await new Promise((resolve,reject)=>fs.readFile({filePath,encoding:'base64',success: r=>resolve(r.data),fail:reject}));
-  return (await request('uploadImage',{base64})).fileID;
+  const parts=[];
+  const CHUNK_CHARS=192*1024*4/3;
+  let committed=false;
+  try {
+    for(let start=0;start<base64.length;start+=CHUNK_CHARS){
+      const result=await request('restoreImageChunk',{base64:base64.slice(start,start+CHUNK_CHARS)});
+      if(typeof result.fileID!=='string'||!result.fileID.startsWith('cloud://'))throw Error('图片分块上传失败');
+      parts.push(result.fileID);
+    }
+    const result=await request('restoreImageCommit',{parts,size:info.size,sha256:digest.sha256Base64(base64)});
+    if(typeof result.fileID!=='string'||!result.fileID.startsWith('cloud://'))throw Error('图片合并失败');
+    committed=true;
+    return result.fileID;
+  } finally {
+    if(!committed&&parts.length){try{await request('restoreImageCleanup',{parts});}catch(_){}}
+  }
 }
 function getCached() { return noteCache.slice(); }
 function role() { return isAdmin; }
