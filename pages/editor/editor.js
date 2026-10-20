@@ -14,19 +14,19 @@ Page({
     wx.setNavigationBarTitle({title:'编辑笔记'});
    } else this.setData({createRequestId:localDraft.requestId(),blocks:[{uid:uid(),type:'text',content:''}]});
    this._draftEnabled=true;
+   this._draftDirty=false;
    const saved=localDraft.load(this.data.id);
    if(saved){
-    if(await localDraft.confirmRestore()) this.setData({
-      title:saved.title,category:saved.category,blocks:saved.blocks,
-      createRequestId:this.data.id?'':saved.createRequestId
-    });
-    else localDraft.clear(this.data.id);
+    if(await localDraft.confirmRestore()) {
+     this.setData({title:saved.title,category:saved.category,blocks:saved.blocks,createRequestId:this.data.id?'':saved.createRequestId});
+     this._draftDirty=true;
+    } else {localDraft.clear(this.data.id);this._draftDirty=false;}
    }
   } catch(e){wx.showModal({title:'无法编辑',content:e.message||'云端权限验证失败',showCancel:false,success:()=>wx.navigateBack({delta:1})});}
  },
- scheduleDraft(){if(!this._draftEnabled)return;clearTimeout(this._draftTimer);this._draftTimer=setTimeout(()=>this.flushDraft(),450);},
+ scheduleDraft(){if(!this._draftEnabled)return;this._draftDirty=true;clearTimeout(this._draftTimer);this._draftTimer=setTimeout(()=>this.flushDraft(),450);},
  flushDraft(){
-  if(!this._draftEnabled)return;
+  if(!this._draftEnabled||!this._draftDirty)return;
   const saved=localDraft.save(this.data);
   if(!saved&&localDraft.meaningful(this.data)&&!this._draftWarningShown){this._draftWarningShown=true;wx.showToast({title:'本机暂存失败，请尽快复制内容',icon:'none'});}
  },
