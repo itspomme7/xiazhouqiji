@@ -51,7 +51,7 @@ Page({
    this.setData({uploading:true});wx.showLoading({title:'上传截图中'});
    let ok=0;
    for(const file of res.tempFiles||[]){
-    try{const id=await cloud.uploadImage(file.tempFilePath);this.addBlock('image',id,file.tempFilePath);ok++;}
+    try{const id=await cloud.uploadImage(file.tempFilePath,{width:file.width,height:file.height});this.addBlock('image',id,file.tempFilePath);ok++;}
     catch(e){wx.showModal({title:'图片上传失败',content:e.message||'请检查网络与云函数',showCancel:false});break;}
    }
    wx.hideLoading();this.setData({uploading:false});if(ok)wx.showToast({title:`已上传 ${ok} 张`,icon:'none'});
