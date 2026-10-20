@@ -1,0 +1,16 @@
+.hero{position:relative;height:244rpx;padding:59rpx 13rpx 0;overflow:hidden;}
+.hero-art{position:absolute;top:-20rpx;right:-44rpx;width:470rpx;height:285rpx;opacity:.83;pointer-events:none;}
+.hero-title{position:relative;font-size:66rpx;line-height:1.2;color:#18352b;font-weight:750;letter-spacing:2rpx;}
+.hero-sub{position:relative;font-size:23rpx;line-height:1.8;color:#89918e;margin-top:14rpx;}
+.search{height:94rpx;border-radius:55rpx;background:#fff;display:flex;align-items:center;gap:22rpx;padding:0 27rpx;margin-bottom:30rpx;color:#9ba4a2;font-size:27rpx;box-shadow:0 10rpx 29rpx rgba(58,72,61,.04);}
+.search image{width:39rpx;height:39rpx;}
+.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:18rpx;}
+.feature{position:relative;min-height:151rpx;border-radius:28rpx;display:flex;align-items:center;gap:14rpx;padding:19rpx 14rpx;box-shadow:0 6rpx 22rpx rgba(70,90,77,.055);border:2rpx solid rgba(255,255,255,.85);}
+.mint{background:#f1f7ef;}.cream{background:#fff8eb;}.blue{background:#eff6fa;}.rose{background:#fff3ef;}
+.tile{width:77rpx;height:77rpx;border-radius:20rpx;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.tile image{width:47rpx;height:47rpx;}.mint-t{background:#e6f0e2;}.cream-t{background:#fff0d1;}.blue-t{background:#e3eef5;}.rose-t{background:#fce7e2;}
+.feature-copy{min-width:0;display:flex;flex-direction:column;gap:10rpx;}.f-title{font-size:27rpx;color:#21332e;font-weight:650;white-space:nowrap;}.f-desc{font-size:20rpx;color:#899590;white-space:nowrap;}
+.arrow{position:absolute;right:8rpx;bottom:16rpx;width:20rpx;height:20rpx;opacity:.45;}
+.note-list{display:flex;flex-direction:column;gap:16rpx;}.note{padding:23rpx 17rpx;display:flex;gap:18rpx;align-items:center;min-height:161rpx;}
+.note-icon{width:99rpx;height:99rpx;border-radius:20rpx;display:flex;align-items:center;justify-content:center;flex-shrink:0;}.note-icon image{width:52rpx;height:52rpx;}
+.note-body{flex:1;min-width:0;}.note-title{font-size:26rpx;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:405rpx;}.note-summary{font-size:23rpx;color:#838f88;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.55;margin:8rpx 0;}.note-date{font-size:20rpx;color:#a2aaa4;}.note-cat{font-size:19rpx;color:#5c906c;}.hint{text-align:center;color:#a5aaa4;font-size:21rpx;margin-top:40rpx;}

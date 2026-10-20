@@ -1,0 +1,7 @@
+<view class="page without-tabs"><view class="top-space"/><view class="title">{{title}}</view><view class="sub">查找你收藏的知识与内容</view>
+  <view class="input-wrap"><image src="/assets/search.png"/><input value="{{keyword}}" bindinput="onInput" focus="{{focus}}" placeholder="输入知识点、标题或代码关键字" confirm-type="search"/></view>
+  <view class="row filters"><view class="filter {{filter==='all'?'on':''}}" data-filter="all" bindtap="setFilter">全部</view><view class="filter {{filter==='notes'?'on':''}}" data-filter="notes" bindtap="setFilter">笔记</view><view class="filter {{filter==='code'?'on':''}}" data-filter="code" bindtap="setFilter">代码</view><view class="filter {{filter==='images'?'on':''}}" data-filter="images" bindtap="setFilter">图片</view></view>
+  <view wx:if="{{mode==='category'}}" class="category-label">分类：{{category}}</view>
+  <view class="items"><view class="entry card" wx:for="{{notes}}" wx:key="id" bindtap="openNote" data-id="{{item.id}}"><view class="row between"><text class="entry-title">{{item.title}}</text><text wx:if="{{item.status==='draft'}}" class="draft">草稿</text></view><text class="entry-summary">{{item.summary}}</text><view class="row between"><text class="entry-foot">{{item.category}} · {{item.dateLabel}}</text><image class="chevron" src="/assets/chevron.png"/></view></view></view>
+  <view wx:if="{{!notes.length}}" class="empty">没有找到匹配的内容</view>
+</view>

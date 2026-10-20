@@ -1,0 +1,51 @@
+/* 底部栏修复：内容区 124rpx + iPhone 底部安全区，避免菜单内容溢出容器 */
+.tabbar {
+  position: fixed;
+  z-index: 100;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: calc(124rpx + env(safe-area-inset-bottom));
+  padding: 8rpx 14rpx calc(8rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border-top: 1rpx solid #eef0ed;
+  box-shadow: 0 -8rpx 26rpx rgba(36, 56, 45, .035);
+}
+.tab {
+  flex: 1;
+  min-width: 0;
+  height: 108rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+  font-size: 21rpx;
+  line-height: 1.3;
+  color: #88938e;
+}
+.tab image {
+  display: block;
+  width: 45rpx;
+  height: 45rpx;
+  flex-shrink: 0;
+}
+.selected { color: #3e7752; font-weight: 650; }
+.plus-circle {
+  width: 76rpx;
+  height: 76rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #78a87c, #4b8459);
+  box-shadow: 0 6rpx 18rpx rgba(70, 129, 78, .21);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.plus-circle image { width: 41rpx; height: 41rpx; }
+.plus-label { color: #52835e; }

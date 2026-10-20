@@ -1,0 +1,10 @@
+<view class="page">
+  <view class="top-space"/><view class="headline">分类浏览</view><view class="subtitle">按知识类型，找到想看的内容</view>
+  <view class="search" bindtap="goSearch"><image src="/assets/search.png"/><text>搜索笔记、代码、关键词</text></view>
+  <view class="section-title">知识分类</view>
+  <view class="cat-grid"><view class="cat-card card" wx:for="{{categories}}" wx:key="name" bindtap="selectCategory" data-name="{{item.name}}"><view class="cat-icon"><image src="/assets/folder-active.png"/></view><view><text class="cat-name">{{item.name}}</text><text class="cat-count">{{item.count}} 篇内容</text></view><image class="right" src="/assets/chevron.png"/></view></view>
+  <view wx:if="{{!categories.length}}" class="empty">还没有分类内容</view>
+  <view class="row between"><view class="section-title">全部内容</view><view class="link" bindtap="goSearch">筛选 ›</view></view>
+  <view class="mini-list"><view wx:for="{{notes}}" wx:key="id" class="mini card" bindtap="openNote" data-id="{{item.id}}"><view class="mini-title">{{item.title}}</view><text class="mini-summary">{{item.summary}}</text><view class="mini-foot">{{item.category}} · {{item.dateLabel}}</view></view></view>
+  <local-tabbar active="categories" isAdmin="{{isAdmin}}"/>
+</view>

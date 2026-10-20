@@ -1,0 +1,7 @@
+<view class="tabbar">
+  <view class="tab" bindtap="goHome"><image src="/assets/home{{active==='home'?'-active':''}}.png"/><text class="{{active==='home'?'selected':''}}">首页</text></view>
+  <view class="tab" bindtap="goCategories"><image src="/assets/grid{{active==='categories'?'-active':''}}.png"/><text class="{{active==='categories'?'selected':''}}">分类</text></view>
+  <view wx:if="{{isAdmin}}" class="tab" bindtap="goAdd"><view class="plus-circle"><image src="/assets/plus-white.png"/></view><text class="plus-label">新增</text></view>
+  <view wx:else class="tab" bindtap="goFavorites"><image src="/assets/star{{active==='favorites'?'-active':''}}.png"/><text class="{{active==='favorites'?'selected':''}}">收藏</text></view>
+  <view class="tab" bindtap="goMine"><image src="/assets/user{{active==='mine'?'-active':''}}.png"/><text class="{{active==='mine'?'selected':''}}">我的</text></view>
+</view>

@@ -1,0 +1,64 @@
+<view class="page without-tabs detail-page">
+  <view wx:if="{{loading}}" class="detail-message card">正在加载笔记…</view>
+  <view wx:elif="{{note}}">
+    <view class="heading">
+      <view class="heading-row">
+        <view class="pill category-pill">{{note.category}}</view>
+        <view class="top-actions">
+          <view class="top-action" bindtap="copyMarkdown">
+            <image src="/assets/copy.png" mode="aspectFit"/>
+            <text>复制 MD</text>
+          </view>
+          <view class="top-action" bindtap="exportCard">
+            <image src="/assets/image.png" mode="aspectFit"/>
+            <text>导出卡片</text>
+          </view>
+        </view>
+      </view>
+      <view class="post-title">{{note.title}}</view>
+      <view class="date">更新于 {{note.dateLabel}}<text wx:if="{{note.status==='draft'}}" class="status"> · 私人草稿</text></view>
+    </view>
+
+    <view class="article card">
+      <block wx:for="{{note.blocks}}" wx:for-item="part" wx:for-index="partIndex" wx:key="uid">
+        <view wx:if="{{part.type==='text'}}" class="paragraph">{{part.content}}</view>
+        <view wx:if="{{part.type==='code'}}" class="code-wrap">
+          <view class="code-head">
+            <view class="code-label"><view class="code-light"></view><text class="code-lang">Java</text><text class="code-meta">{{part.codeLineCount}} 行</text></view>
+            <view class="copy-link" data-index="{{partIndex}}" bindtap="copyCode">复制代码</view>
+          </view>
+          <scroll-view scroll-x="true" class="code-scroll" enhanced="true" show-scrollbar="{{false}}">
+            <view class="code-content" style="width:{{part.codeWidth}}rpx">
+              <view class="code-row" wx:for="{{part.codeLines}}" wx:for-item="line" wx:key="no">
+                <text class="code-line-no">{{line.no}}</text>
+                <view class="code-source"><text wx:for="{{line.tokens}}" wx:for-item="token" wx:key="key" class="code-token token-{{token.kind}}" space="nbsp">{{token.value}}</text></view>
+              </view>
+            </view>
+          </scroll-view>
+          <view class="code-hint">长代码可左右滑动 · 保留原始缩进</view>
+        </view>
+        <view wx:if="{{part.type==='image'}}" class="picture">
+          <view class="picture-head">学习截图 {{part.imageIndex}} / {{imageCount}}</view>
+          <image src="{{part.displayUrl || part.content}}" mode="widthFix" lazy-load="true" data-src="{{part.displayUrl || part.content}}" bindtap="previewImage"/>
+          <view class="pic-caption">{{imageCount > 1 ? '点按放大，左右滑动切换图片' : '点按查看大图'}}</view>
+        </view>
+      </block>
+    </view>
+
+    <view class="post-actions">
+      <button class="btn btn-soft" bindtap="toggleFavorite">{{isFavorite ? '★ 已收藏' : '☆ 收藏笔记'}}</button>
+      <button class="btn btn-primary" bindtap="copyMarkdown">复制整篇笔记</button>
+    </view>
+    <view wx:if="{{isAdmin}}" class="admin-actions">
+      <view class="admin-btn" bindtap="editNote">编辑笔记</view>
+      <view class="admin-btn danger" bindtap="deleteNote">删除笔记</view>
+    </view>
+    <view class="tip">导出卡片为文字与代码摘要，不包含原始截图。复制 Markdown 时，图片仅保留云端引用，不等于完整备份。</view>
+  </view>
+  <view wx:else="" class="detail-message card">
+    <view class="error-title">暂时无法查看</view>
+    <view class="error-desc">{{loadError || '笔记不存在或没有查看权限'}}</view>
+    <button class="btn btn-soft retry-btn" bindtap="refresh">重新加载</button>
+  </view>
+  <canvas type="2d" id="posterCanvas" class="poster-canvas"></canvas>
+</view>

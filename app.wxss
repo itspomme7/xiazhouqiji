@@ -1,0 +1,21 @@
+page { background: #f8f8f4; color: #21322e; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 28rpx; }
+view, text, button, input, textarea, image, scroll-view { box-sizing: border-box; }
+.page { min-height: 100vh; background: #f8f8f4; padding: 0 30rpx calc(156rpx + env(safe-area-inset-bottom)); }
+.without-tabs { padding-bottom: 60rpx; }
+.muted { color: #8b9593; }
+.row { display: flex; align-items: center; }
+.between { justify-content: space-between; }
+.card { border-radius: 28rpx; background: #fff; box-shadow: 0 7rpx 32rpx rgba(76,89,77,.045); }
+.section-title { display: flex; align-items: center; font-size: 34rpx; font-weight: 650; margin: 32rpx 0 22rpx; }
+.section-title::before { content: ''; display: inline-block; width: 7rpx; height: 31rpx; border-radius: 12rpx; background: #80a884; margin-right: 16rpx; }
+.link { font-size: 24rpx; color: #81918a; font-weight: 400; }
+.icon { width: 38rpx; height: 38rpx; }
+.icon-sm { width: 28rpx; height: 28rpx; }
+.pill { font-size: 21rpx; color: #5d8862; background: #ebf3eb; padding: 9rpx 15rpx; border-radius: 14rpx; }
+.empty { padding: 95rpx 30rpx; text-align: center; color: #929c97; font-size: 27rpx; line-height: 1.9; }
+.btn { display: flex; justify-content: center; align-items: center; border-radius: 100rpx; font-size: 28rpx; padding: 20rpx 25rpx; border: 0; }
+.btn::after { border: none; }
+.btn-primary { background: #5e8e67; color: white; }
+.btn-soft { background: #edf3eb; color: #436c4a; }
+.btn-line { color: #68766b; background: #fff; border: 1rpx solid #e5eae4; }
+.top-space { height: 22rpx; }

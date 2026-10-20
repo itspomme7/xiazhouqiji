@@ -1,0 +1,48 @@
+/* 详情页独立滚动，不修改已验收的底部导航栏 */
+.detail-page { padding-bottom: calc(84rpx + env(safe-area-inset-bottom)); }
+.heading { padding: 33rpx 4rpx 27rpx; }
+.heading-row { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
+.category-pill { flex-shrink: 1; min-width: 0; max-width: 240rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-actions { display: flex; gap: 10rpx; flex-shrink: 0; }
+.top-action { min-width: 108rpx; min-height: 86rpx; padding: 8rpx 6rpx; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4rpx; color: #6e8175; font-size: 21rpx; }
+.top-action image { width: 35rpx; height: 35rpx; }
+.post-title { font-size: 44rpx; font-weight: 700; color: #1d382a; line-height: 1.42; margin: 18rpx 0 15rpx; word-break: break-word; }
+.date { color: #7a8b82; font-size: 23rpx; line-height: 1.6; }
+.status { color: #997c50; }
+.article { padding: 32rpx 25rpx; }
+.paragraph { font-size: 29rpx; color: #485b51; line-height: 1.88; white-space: pre-wrap; word-break: break-word; margin-bottom: 28rpx; }
+.paragraph:last-child { margin-bottom: 0; }
+/* 独立的 Java 源代码阅读区：行号、轻量高亮、逐行布局 */
+.code-wrap { width:100%; margin:20rpx 0 34rpx; border:1rpx solid #dce7e2; border-radius:20rpx; background:#f3f7f5; overflow:hidden; }
+.code-head { min-height:75rpx; padding:13rpx 19rpx 12rpx 23rpx; display:flex; justify-content:space-between; align-items:center; border-bottom:1rpx solid #dde8e3; }
+.code-label { display:flex; align-items:center; gap:12rpx; }
+.code-light { width:13rpx;height:13rpx;border-radius:50%;background:#76a78c; }
+.code-lang { color:#2a6450; font-size:24rpx;font-weight:700;letter-spacing:.5rpx; }
+.code-meta { color:#82958a;font-size:21rpx; }
+.copy-link { color:#346b51; background:#e1eee6; border-radius:12rpx; font-size:22rpx; padding:12rpx 17rpx; }
+.code-scroll { display:block; width:100%; max-width:100%; box-sizing:border-box; background:#f6f8f7; }
+.code-content { display:inline-block; min-width:100%;padding:20rpx 0;box-sizing:border-box; }
+.code-row { display:flex; align-items:baseline; width:100%; box-sizing:border-box; min-height:41rpx; line-height:1.72; white-space:nowrap; }
+.code-line-no { display:inline-block; box-sizing:border-box; flex:none; width:57rpx; padding:0 12rpx 0 8rpx; margin-right:18rpx; border-right:1rpx solid #e1e8e5; text-align:right; font-family:Menlo,Consolas,Monaco,monospace; font-size:23rpx; color:#9aaba4; }
+.code-source { display:inline-block; white-space:pre; padding-right:35rpx; line-height:1.72; }
+.code-token { display:inline; white-space:pre; font-family:Menlo,Consolas,Monaco,monospace; font-size:24rpx; color:#33474c; }
+.token-keyword { color:#375fa0; }
+.token-string { color:#278164; }
+.token-number { color:#b56e34; }
+.token-comment { color:#8a9d8d; }
+.code-hint { padding:8rpx 20rpx 14rpx; color:#7c9287; text-align:right; font-size:20rpx; background:#f3f7f5; }
+.picture { margin: 18rpx 0 31rpx; }
+.picture-head { font-size: 22rpx; color: #536e5c; margin-bottom: 14rpx; font-weight: 600; }
+.picture image { width: 100%; display: block; border-radius: 16rpx; background: #f2f5f1; }
+.pic-caption { font-size: 22rpx; line-height: 1.6; color: #819087; text-align: center; margin-top: 10rpx; }
+.post-actions { display: flex; gap: 14rpx; margin: 28rpx 0 22rpx; }
+.post-actions .btn { flex: 1; min-width: 0; font-size: 24rpx; padding-left: 10rpx; padding-right: 10rpx; }
+.admin-actions { display: flex; justify-content: center; align-items: center; gap: 27rpx; margin: 20rpx 0; color: #456f50; font-size: 25rpx; }
+.admin-btn { min-height: 65rpx; padding: 14rpx 20rpx; display: flex; align-items: center; }
+.danger { color: #af645e; }
+.tip { color: #76877c; font-size: 22rpx; text-align: center; line-height: 1.75; margin: 23rpx 5rpx; }
+.detail-message { margin-top: 60rpx; padding: 55rpx 30rpx; text-align: center; color: #6c8072; line-height: 1.7; }
+.error-title { color: #294b36; font-size: 31rpx; font-weight: 600; }
+.error-desc { color: #809188; font-size: 25rpx; margin: 15rpx 0 27rpx; }
+.retry-btn { width: 220rpx; margin: 0 auto; font-size: 25rpx; }
+.poster-canvas { position: fixed; left: -1800px; top: 0; width: 375px; height: 540px; opacity: 0; pointer-events: none; }

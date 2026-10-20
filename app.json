@@ -1,0 +1,19 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/categories/categories",
+    "pages/favorites/favorites",
+    "pages/mine/mine",
+    "pages/list/list",
+    "pages/detail/detail",
+    "pages/editor/editor"
+  ],
+  "window": {
+    "navigationBarTitleText": "下周七集",
+    "navigationBarBackgroundColor": "#f8f8f4",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f8f8f4"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

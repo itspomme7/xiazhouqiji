@@ -1,0 +1,93 @@
+<view class="page mine-page">
+  <view wx:if="{{!ready}}" class="loading-box card">正在加载内容…</view>
+  <block wx:else>
+    <view class="profile card">
+      <view class="avatar">七</view>
+      <view class="profile-info">
+        <text class="profile-title">下周七集</text>
+        <text class="profile-sub">把学过的东西，留在随时能找到的地方</text>
+        <text class="profile-tag">{{isAdmin ? '内容管理员' : '阅读空间'}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{notesError}}" class="error-notice card">
+      <text>{{notesError}}</text>
+      <text class="retry" bindtap="refresh">重新加载 ›</text>
+    </view>
+
+    <view wx:if="{{!notesError}}" class="stats card">
+      <view class="stat"><text class="stat-num">{{count}}</text><text class="stat-label">{{isAdmin ? '云端笔记' : '公开笔记'}}</text></view>
+      <view class="line"/>
+      <view class="stat"><text class="stat-num">{{isAdmin ? publishedCount : favoriteCount}}</text><text class="stat-label">{{isAdmin ? '已发布' : '我的收藏'}}</text></view>
+      <view class="line"/>
+      <view class="stat"><text class="stat-num">{{isAdmin ? draftCount : historyCount}}</text><text class="stat-label">{{isAdmin ? '草稿' : '最近浏览'}}</text></view>
+    </view>
+
+    <view class="section-title">常用功能</view>
+    <view class="menu card">
+      <view class="menu-item" bindtap="goFavorites">
+        <view class="icon-wrap icon-pink"><image src="/assets/star-active.png"/></view>
+        <view class="item-copy"><text class="item-title">我的收藏</text><text class="item-sub">保存在当前设备，方便随时翻阅</text></view>
+        <text class="arr">›</text>
+      </view>
+      <view class="menu-item" bindtap="goHistory">
+        <view class="icon-wrap icon-blue"><image src="/assets/clock.png"/></view>
+        <view class="item-copy"><text class="item-title">最近浏览</text><text class="item-sub">快速找到刚刚看过的内容</text></view>
+        <text class="arr">›</text>
+      </view>
+    </view>
+
+    <block wx:if="{{isAdmin}}">
+      <view class="section-title">内容管理</view>
+      <view class="menu card">
+        <view class="menu-item" bindtap="goNew">
+          <view class="icon-wrap icon-green"><image src="/assets/note-active.png"/></view>
+          <view class="item-copy"><text class="item-title">新建笔记</text><text class="item-sub">整理文字、代码与学习截图</text></view>
+          <text class="arr">›</text>
+        </view>
+        <view class="menu-item" bindtap="goPublished">
+          <view class="icon-wrap icon-green"><image src="/assets/file-active.png"/></view>
+          <view class="item-copy"><text class="item-title">已发布内容</text><text class="item-sub">查看面向访客公开的笔记</text></view>
+          <text class="count-pill">{{publishedCount}}</text><text class="arr">›</text>
+        </view>
+        <view class="menu-item" bindtap="goDrafts">
+          <view class="icon-wrap icon-yellow"><image src="/assets/folder-active.png"/></view>
+          <view class="item-copy"><text class="item-title">云端草稿箱</text><text class="item-sub">只有你可以查看与继续编辑</text></view>
+          <text class="count-pill">{{draftCount}}</text><text class="arr">›</text>
+        </view>
+      </view>
+
+      <view class="section-title">导出与备份</view>
+      <view class="menu card">
+        <view class="menu-item" bindtap="exportPortableCloudBackup">
+          <view class="icon-wrap icon-green"><image src="/assets/upload-active.png"/></view>
+          <view class="item-copy"><text class="item-title">完整备份云端笔记（含原图）</text><text class="item-sub">生成独立 JSON 文件，建议发送到文件传输助手</text></view><text class="arr">›</text>
+        </view>
+        <view class="menu-item" bindtap="importPortableCloudBackup">
+          <view class="icon-wrap icon-yellow"><image src="/assets/folder.png"/></view>
+          <view class="item-copy"><text class="item-title">从完整备份恢复到云端</text><text class="item-sub">先检查文件，不覆盖已有笔记，默认恢复为草稿</text></view><text class="arr">›</text>
+        </view>
+        <view wx:if="{{backupBusy}}" class="backup-progress">{{backupProgress || '正在处理…'}} · 请勿退出页面</view>
+        <view class="menu-item" bindtap="exportCloudMarkdown">
+          <view class="icon-wrap icon-blue"><image src="/assets/code.png"/></view>
+          <view class="item-copy"><text class="item-title">复制云端笔记 Markdown</text><text class="item-sub">文字和代码可复制，图片仅保留引用</text></view>
+          <text class="arr">›</text>
+        </view>
+        <view class="menu-item" bindtap="toggleLegacyTools">
+          <view class="icon-wrap icon-green"><image src="/assets/folder.png"/></view>
+          <view class="item-copy"><text class="item-title">旧版本地笔记工具</text><text class="item-sub">仅在需要备份或恢复旧数据时使用</text></view>
+          <text class="arr">{{showLegacyTools ? '⌃' : '⌄'}}</text>
+        </view>
+        <block wx:if="{{showLegacyTools}}">
+          <view class="legacy-note">以下操作只处理这台设备上的旧版笔记，不会同步到云端。</view>
+          <view class="menu-item legacy-item" bindtap="exportMarkdown"><view class="item-copy"><text class="item-title">导出旧版 Markdown</text></view><text class="arr">›</text></view>
+          <view class="menu-item legacy-item" bindtap="exportCompleteBackup"><view class="item-copy"><text class="item-title">完整备份旧版笔记（含截图）</text></view><text class="arr">›</text></view>
+          <view class="menu-item legacy-item" bindtap="importBackup"><view class="item-copy"><text class="item-title">从旧版本地备份恢复</text></view><text class="arr">›</text></view>
+        </block>
+      </view>
+      <view class="footer-note">完整 JSON 备份包含原始图片及私人草稿，请妥善保存。暂支持单包原图最多 16MB，超出会明确报错，不会生成残缺备份</view>
+    </block>
+    <view wx:else class="footer-note">收藏与最近浏览只保存在当前设备</view>
+  </block>
+  <local-tabbar active="mine" isAdmin="{{isAdmin}}"/>
+</view>

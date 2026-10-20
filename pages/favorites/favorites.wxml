@@ -1,0 +1,5 @@
+<view class="page"><view class="top-space"/><view class="title">我的收藏</view><view class="sub">好内容，值得再读一遍</view>
+  <view class="fav-list"><view class="entry card" wx:for="{{notes}}" wx:key="id" data-id="{{item.id}}" bindtap="openNote"><view class="row between"><text class="entry-title">{{item.title}}</text><image src="/assets/star-active.png"/></view><text class="entry-desc">{{item.summary}}</text><view class="entry-tag">{{item.category}} · {{item.dateLabel}}</view></view></view>
+  <view wx:if="{{!notes.length}}" class="empty">还没有收藏的笔记。 打开一篇知识点，点击收藏即可。</view>
+  <local-tabbar active="favorites" isAdmin="{{isAdmin}}"/>
+</view>

@@ -1,0 +1,14 @@
+.editor{padding-top:30rpx;}.edit-header{margin:12rpx 0 29rpx;}.edit-title{font-size:40rpx;font-weight:730;color:#203a2e;}.save-draft{font-size:25rpx;color:#5d8b69;}.form-card{padding:27rpx 23rpx;margin-bottom:19rpx;}.field-title{font-size:28rpx;font-weight:650;color:#273b30;margin-bottom:19rpx;border-left:7rpx solid #8eb08f;padding-left:16rpx;line-height:1.2;}.text-input{border:1rpx solid #e8ece6;border-radius:17rpx;padding:21rpx 17rpx;font-size:26rpx;height:87rpx;color:#22352e;}.chip-row{display:flex;flex-wrap:wrap;gap:12rpx;margin-top:19rpx;}.chip{font-size:21rpx;color:#5e8065;border:1rpx solid #e1e9df;border-radius:45rpx;padding:9rpx 17rpx;background:#f7faf6;}.hint{font-size:18rpx;color:#a2aaa2;}.block{padding:19rpx 0 23rpx;border-bottom:1rpx solid #eef1ec;}.block-head{font-size:22rpx;color:#587d60;margin-bottom:14rpx;}.remove{font-size:20rpx;color:#b19086;}.block-input{min-height:143rpx;width:100%;padding:18rpx 17rpx;border-radius:17rpx;background:#f7f9f6;border:1rpx solid #edf0e9;line-height:1.7;font-size:25rpx;}.code-input{font-family:Menlo,Consolas,monospace;background:#f1f4f5;color:#233746;min-height:170rpx;font-size:24rpx;white-space:pre;}.uploaded-image{width:100%;height:270rpx;border-radius:15rpx;background:#f4f6f1;}.add-row{display:flex;gap:13rpx;justify-content:space-between;margin-top:22rpx;}.add-item{background:#eff5ee;color:#4f7a5b;padding:19rpx 10rpx;border-radius:18rpx;text-align:center;font-size:24rpx;flex:1;}.footer-actions{display:flex;gap:18rpx;margin:26rpx 0;}.footer-actions .btn{flex:1;}.safe-note{font-size:20rpx;color:#a2aaa2;text-align:center;line-height:1.6;}.empty-inline{padding:35rpx 0;color:#abb3ad;text-align:center;font-size:24rpx;}
+
+/* 清楚区分文字和源代码，已有文字块也能无损转为代码块 */
+.block-head{min-height:52rpx;align-items:center;gap:16rpx}
+.block-kind{color:#526c5c;font-weight:650}
+.block-kind-code{color:#285d4d}
+.block-actions{display:flex;align-items:center;gap:22rpx}
+.switch-kind{font-size:22rpx;line-height:1.5;border:1rpx solid #cddfd2;background:#eef5ee;color:#38684c;border-radius:14rpx;padding:9rpx 13rpx}
+.remove{padding:9rpx 2rpx;font-size:22rpx}
+.code-editor-shell{background:#eff4f3;border:1rpx solid #dfe9e6;border-radius:16rpx;padding:14rpx;overflow:hidden}
+.code-editor-label{display:flex;align-items:center;font-size:21rpx;color:#526f65;padding:6rpx 5rpx 13rpx;font-weight:600;letter-spacing:.2rpx}
+.code-editor-dot{display:inline-block;width:12rpx;height:12rpx;border-radius:50%;background:#70a789;margin-right:10rpx}
+.code-input{display:block;background:#fff;box-sizing:border-box;line-height:1.65;white-space:pre-wrap;overflow-wrap:normal;word-break:normal;border:1rpx solid #dbe5e2;min-height:210rpx;width:100%;padding:18rpx;font-family:Menlo,Consolas,Monaco,monospace;font-size:24rpx;color:#263b43}
+.code-editor-help{color:#758980;font-size:21rpx;line-height:1.55;padding:13rpx 6rpx 4rpx}

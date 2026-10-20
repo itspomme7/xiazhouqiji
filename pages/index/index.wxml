@@ -1,0 +1,22 @@
+<view class="page">
+  <view class="hero"><image class="hero-art" src="/assets/header-art.png" mode="aspectFit"/><view class="hero-title">下周七集</view><view class="hero-sub">把学过的东西，留在随时能找到的地方</view></view>
+  <view class="search" bindtap="goSearch"><image src="/assets/search.png"/><text>搜索知识点、代码、图片</text></view>
+  <view class="feature-grid">
+    <view class="feature mint" data-mode="notes" bindtap="goFeature"><view class="tile mint-t"><image src="/assets/note-active.png"/></view><view class="feature-copy"><text class="f-title">学习笔记</text><text class="f-desc">记录知识要点</text></view><image class="arrow" src="/assets/chevron.png"/></view>
+    <view class="feature cream" data-mode="images" bindtap="goFeature"><view class="tile cream-t"><image src="/assets/image-active.png"/></view><view class="feature-copy"><text class="f-title">学习截图</text><text class="f-desc">保存重要图片</text></view><image class="arrow" src="/assets/chevron.png"/></view>
+    <view class="feature blue" data-mode="code" bindtap="goFeature"><view class="tile blue-t"><image src="/assets/code-active.png"/></view><view class="feature-copy"><text class="f-title">代码案例</text><text class="f-desc">收集实用代码</text></view><image class="arrow" src="/assets/chevron.png"/></view>
+    <view class="feature rose" bindtap="goFavorites"><view class="tile rose-t"><image src="/assets/star-active.png"/></view><view class="feature-copy"><text class="f-title">我的收藏</text><text class="f-desc">重要内容不丢失</text></view><image class="arrow" src="/assets/chevron.png"/></view>
+  </view>
+  <view class="row between"><view class="section-title">最近整理</view><view class="link" bindtap="goAll">查看全部 ›</view></view>
+  <view wx:if="{{error}}" class="hint">云端加载失败：{{error}}</view>
+  <view wx:if="{{loading}}" class="hint">正在读取云端笔记…</view>
+  <view wx:if="{{notes.length}}" class="note-list">
+    <view class="note card" wx:for="{{notes}}" wx:key="id" data-id="{{item.id}}" bindtap="openNote">
+      <view class="note-icon {{index%3===0?'mint-t':index%3===1?'blue-t':'rose-t'}}"><image src="/assets/{{item.hasCode?'code':'note'}}-active.png"/></view>
+      <view class="note-body"><view class="row between"><text class="note-title">{{item.title}}</text><text class="pill" wx:if="{{item.status==='draft'}}">草稿</text></view><text class="note-summary">{{item.summary}}</text><view class="row between"><text class="note-date">◷ {{item.dateLabel}}</text><text class="note-cat">{{item.category}}</text></view></view>
+    </view>
+  </view>
+  <view wx:else class="empty">这里还没有笔记。 可以从第一篇知识点开始。</view>
+  <view wx:if="{{isAdmin}}" class="hint">当前为云端管理员 · 新笔记将保存到云端</view>
+  <local-tabbar active="home" isAdmin="{{isAdmin}}"/>
+</view>

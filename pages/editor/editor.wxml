@@ -1,0 +1,27 @@
+<view class="page without-tabs editor">
+ <view class="row between edit-header"><view class="edit-title">{{isEditing?'编辑笔记':'新建笔记'}}</view><view class="save-draft" bindtap="saveDraft">保存草稿</view></view>
+ <view class="form-card card"><view class="field-title">标题</view><input class="text-input" value="{{title}}" placeholder="例如：Java 的 if 条件判断" maxlength="80" bindinput="titleInput"/></view>
+ <view class="form-card card"><view class="field-title">分类</view><input class="text-input" value="{{category}}" placeholder="输入分类，如 Java基础" maxlength="20" bindinput="categoryInput"/><view class="chip-row"><view class="chip" wx:for="{{suggestions}}" wx:key="*this" data-value="{{item}}" bindtap="quickCategory">{{item}}</view></view></view>
+ <view class="form-card card"><view class="row between"><view class="field-title">正文内容</view><view class="hint">可自由组合文字、代码、图片</view></view>
+  <view class="block" wx:for="{{blocks}}" wx:for-item="part" wx:for-index="idx" wx:key="uid">
+   <view class="row between block-head">
+    <text class="block-kind {{part.type==='code'?'block-kind-code':''}}">{{part.type==='text'?'文字块':part.type==='code'?'Java 代码块':'图片'}}</text>
+    <view class="block-actions">
+     <view wx:if="{{part.type==='text'||part.type==='code'}}" class="switch-kind" data-index="{{idx}}" bindtap="switchBlockType">{{part.type==='text'?'转为代码':'转为文字'}}</view>
+     <view class="remove" data-index="{{idx}}" bindtap="removeBlock">移除</view>
+    </view>
+   </view>
+   <textarea wx:if="{{part.type==='text'}}" class="block-input" value="{{part.content}}" data-index="{{idx}}" bindinput="changeBlock" placeholder="记录知识点、使用场景和易错点……" auto-height maxlength="-1"/>
+   <view wx:if="{{part.type==='code'}}" class="code-editor-shell">
+    <view class="code-editor-label"><text class="code-editor-dot"></text> Java · 粘贴源代码</view>
+    <textarea class="block-input code-input" value="{{part.content}}" data-index="{{idx}}" bindinput="changeBlock" placeholder="建议从代码编辑器直接复制，保留换行和缩进" auto-height maxlength="-1"/>
+    <view class="code-editor-help">每行代码应独立换行。保存后以等宽字体、行号显示，长行可左右滑动</view>
+   </view>
+   <image wx:if="{{part.type==='image'}}" src="{{part.displayUrl || part.content}}" class="uploaded-image" mode="aspectFit" data-src="{{part.displayUrl || part.content}}" bindtap="previewImage"/>
+  </view>
+  <view wx:if="{{!blocks.length}}" class="empty-inline">先添加一个内容块吧</view>
+  <view class="add-row"><view class="add-item" bindtap="addText">＋ 文字</view><view class="add-item" bindtap="addCode">＋ 代码</view><view class="add-item" bindtap="addImage">＋ 图片</view></view>
+ </view>
+ <view class="footer-actions"><button class="btn btn-line" bindtap="previewNote">预览检查</button><button class="btn btn-primary" bindtap="publishNote">{{isEditing?'保存并发布':'发布笔记'}}</button></view>
+ <view class="safe-note">云端版：文字和截图将保存到云环境，只有管理员可以编辑。</view>
+</view>

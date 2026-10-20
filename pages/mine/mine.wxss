@@ -1,0 +1,36 @@
+/* 下周七集 · 我的：清爽卡片布局，与现有首页保持相同调性 */
+.mine-page { padding-bottom: calc(156rpx + env(safe-area-inset-bottom)); }
+.profile { margin: 30rpx 0 24rpx; padding: 34rpx 28rpx; display: flex; align-items: center; gap: 22rpx; background: linear-gradient(135deg,#fff 10%,#f0f6ed 100%); }
+.avatar { width: 100rpx; height: 100rpx; border-radius: 30rpx; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #e6f0df; color: #37644a; font-size: 65rpx; font-weight: 720; }
+.profile-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8rpx; }
+.profile-title { color:#213b2d; font-size: 36rpx; font-weight: 700; }
+.profile-sub { color: #748578; font-size: 22rpx; line-height: 1.55; }
+.profile-tag { align-self: flex-start; border-radius: 999rpx; background: #e8f1e7; color: #5a8264; font-size: 19rpx; padding: 6rpx 17rpx; }
+.stats { display:flex; align-items:center; justify-content:space-around; padding: 28rpx 12rpx; }
+.stat { flex:1; display:flex; align-items:center; flex-direction:column; gap:6rpx; }
+.stat-num { font-size: 45rpx; font-weight: 730; color: #274733; line-height:1.15; }
+.stat-label { font-size: 20rpx; color: #829287; }
+.line { height: 58rpx; width: 1rpx; background:#edf1ea; }
+.menu { padding: 0 22rpx; }
+.menu-item { display:flex; align-items:center; gap:18rpx; min-height:120rpx; padding:14rpx 0; border-bottom: 1rpx solid #eef0ec; }
+.menu-item:last-child { border-bottom:0; }
+.icon-wrap { width:69rpx; height:69rpx; flex-shrink:0; border-radius:20rpx; display:flex; align-items:center; justify-content:center; }
+.icon-wrap image { width:40rpx; height:40rpx; }
+.icon-green { background:#edf5ec; }
+.icon-yellow { background:#fff7e8; }
+.icon-pink { background:#fff0ef; }
+.icon-blue { background:#eef4f8; }
+.item-copy { display:flex; flex:1; flex-direction:column; gap:6rpx; min-width:0; }
+.item-title { font-size:27rpx; color:#283c31; font-weight:560; }
+.item-sub { font-size:20rpx; color:#7f8f84; line-height:1.45; }
+.arr { color:#a8b5ac; font-size:34rpx; margin-left:8rpx; }
+.count-pill { padding:4rpx 13rpx; font-size:21rpx; color:#65866b; background:#eef5ea; border-radius:999rpx; }
+.legacy-note { color:#87988d; font-size:20rpx; line-height:1.65; padding:19rpx 2rpx 10rpx; }
+.legacy-item { margin-left:12rpx; min-height:86rpx; }
+.legacy-item .item-title { font-size:24rpx; font-weight:450; }
+.footer-note { margin:29rpx 12rpx 0; color:#829288; font-size:21rpx; text-align:center; line-height:1.7; }
+.error-notice { margin:0 0 20rpx; padding:22rpx 25rpx; color:#8b6755; font-size:23rpx; display:flex; align-items:center; justify-content:space-between; gap:15rpx; }
+.retry { color:#4c8460; font-weight:580; flex-shrink:0; }
+.loading-box { margin:38rpx 0; padding:75rpx 20rpx; color:#8c9b8f; font-size:25rpx; text-align:center; }
+
+.backup-progress { color:#3f7452; background:#eff6ec; padding:18rpx 12rpx; border-radius:16rpx; font-size:22rpx; line-height:1.6; text-align:center; }
