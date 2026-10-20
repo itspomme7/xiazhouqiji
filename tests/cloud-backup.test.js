@@ -10,7 +10,7 @@ const originalID='cloud://env/notes-images/image.png';
 const notes=[{id:'n_demo_1',title:'Java 学习笔记',category:'Java基础',status:'draft',createdAt:100,updatedAt:200,
   blocks:[{uid:'a1',type:'code',content:'public class Main {\n    int n=1;\n}'},{uid:'a2',type:'image',content:originalID}]}];
 const cloud=require('../utils/cloudNotes');
-const uploadedParts=new Map();const calls=[];const restored=new Set();let isAdmin=true;let manifestChanged=false;
+const uploadedParts=new Map();const calls=[];const restored=new Map();let isAdmin=true;let manifestChanged=false;
 cloud.loadNotes=async()=>({isAdmin,notes});cloud.role=()=>isAdmin;
 const digest=crypto.createHash('sha256').update(image).digest('hex');
 const revision='1'.repeat(64);const manifestHash='2'.repeat(64);
@@ -25,7 +25,11 @@ cloud.request=async(action,params)=>{
     assert.strictEqual(params.manifestHash,manifestHash);return {verified:true};
   }
   if(action==='backupImage')return {ok:true,fileID:params.fileID,ext:'png',size:image.length,sha256:digest,tempFileURL:'https://example.test/photo'};
-  if(action==='restoreCheck')return {exists:restored.has(params.originalId)};
+  if(action==='restoreCheck'){
+    assert(/^[0-9a-f]{64}$/.test(params.contentDigest),'恢复预检必须携带原始内容摘要');
+    if(restored.has(params.originalId)&&restored.get(params.originalId)!==params.contentDigest)throw Error('同一恢复来源的笔记内容不一致');
+    return {exists:restored.has(params.originalId)};
+  }
   if(action==='restoreImageChunk'){
     assert(params.base64.length <= 262144,'分块必须小于 256KiB Base64');
     const id='cloud://env/backup-staging/owner/'+uploadedParts.size+'.bin';
@@ -40,7 +44,7 @@ cloud.request=async(action,params)=>{
     return {fileID:'cloud://env/notes-images/restored.png'};
   }
   if(action==='restoreImageCleanup')return {ok:true};
-  if(action==='restoreNote'){restored.add(params.originalId);return{skipped:false,id:'restored1'};}
+  if(action==='restoreNote'){assert(/^[0-9a-f]{64}$/.test(params.contentDigest));restored.set(params.originalId,params.contentDigest);return{skipped:false,id:'restored1'};}
   throw Error('unexpected action '+action);
 };
 const tempImage=path.join(dir,'wx-temp-download.png');fs.writeFileSync(tempImage,image);
@@ -73,6 +77,8 @@ async function run(){
   assert.strictEqual(calls.filter(x=>x.action==='uploadImage').length,0,'不能再整图发 callFunction');
   assert.strictEqual(calls.find(x=>x.action==='restoreNote').params.note.blocks[1].content,'cloud://env/notes-images/restored.png');
   assert.strictEqual(calls.find(x=>x.action==='restoreNote').params.note.status,'draft');
+  const checkDigest=calls.find(x=>x.action==='restoreCheck').params.contentDigest;
+  assert.strictEqual(calls.find(x=>x.action==='restoreNote').params.contentDigest,checkDigest,'图片上传后路径变化不能改变原始内容摘要');
   let evil=JSON.parse(raw);evil.images=[];
   fs.writeFileSync(path.join(dir,'bad.json'),JSON.stringify(evil));
   assert.throws(()=>bk.inspectCloudBackup(path.join(dir,'bad.json')),/缺少图片/);
@@ -92,6 +98,6 @@ async function run(){
   isAdmin=false;
   await assert.rejects(()=>bk.exportCloudBackup(),/管理员/);
   await assert.rejects(()=>bk.restoreCloudBackup(backup,false),/管理员/);
-  console.log('云备份测试通过：事务清单、原图 SHA256、超大文件预检、变动中止、分块恢复、去重和访客拒绝。');
+  console.log('云备份测试通过：稳定清单、原图 SHA256、超大文件预检、变动中止、内容摘要、分块恢复、去重和访客拒绝。');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>fs.rmSync(dir,{recursive:true,force:true}));

@@ -70,4 +70,16 @@ function base64ToBytes(base64) {
   return out;
 }
 function sha256Base64(base64){return sha256Bytes(base64ToBytes(base64));}
-module.exports={sha256Bytes,sha256Base64,base64ToBytes};
+function utf8Bytes(value) {
+  const bytes=[];
+  for(const char of String(value)) {
+    const point=char.codePointAt(0);
+    if(point<=0x7f) bytes.push(point);
+    else if(point<=0x7ff) bytes.push(0xc0|(point>>>6),0x80|(point&0x3f));
+    else if(point<=0xffff) bytes.push(0xe0|(point>>>12),0x80|((point>>>6)&0x3f),0x80|(point&0x3f));
+    else bytes.push(0xf0|(point>>>18),0x80|((point>>>12)&0x3f),0x80|((point>>>6)&0x3f),0x80|(point&0x3f));
+  }
+  return new Uint8Array(bytes);
+}
+function sha256Text(value){return sha256Bytes(utf8Bytes(value));}
+module.exports={sha256Bytes,sha256Base64,sha256Text,base64ToBytes};

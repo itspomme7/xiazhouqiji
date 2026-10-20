@@ -153,23 +153,35 @@ function fitDetailResponse(base,blocks,start,nextCursor) {
 function manifestHash(entries) {
   return crypto.createHash('sha256').update(JSON.stringify(entries)).digest('hex');
 }
-async function collectManifest(source) {
+async function collectManifest() {
   const entries = [];
+  let cursor = '';
   for (let page=0; page<=Math.ceil(MAX_MANIFEST_NOTES/100); page++) {
-    const query=source.collection('notes').orderBy('_id','asc').field({_id:true,_backupRevision:true,title:true,category:true,status:true,createdAt:true,updatedAt:true});
-    const {data=[]}=await query.skip(page*100).limit(100).get();
+    // CloudBase transactions only support doc operations. Manifest collection scans
+    // therefore run outside transactions and use an _id cursor instead of skip,
+    // so inserts/deletes cannot silently shift a later page.
+    let query=NOTES;
+    if(cursor) query=query.where({_id:db.command.gt(cursor)});
+    query=query.orderBy('_id','asc').field({_id:true,_backupRevision:true,title:true,category:true,status:true,createdAt:true,updatedAt:true});
+    const {data=[]}=await query.limit(100).get();
     for (const note of data) {
+      const id=noteId(note);
+      if(!id || (cursor && id<=cursor)) throw Error('备份清单游标异常，已停止备份');
       entries.push({id:noteId(note),revision:manifestRevision(note)});
       if (entries.length>MAX_MANIFEST_NOTES) throw Error('超过 500 篇，请分批导出；没有生成不完整备份');
+      cursor=id;
     }
     if (data.length<100) break;
   }
-  entries.sort((a,b)=>a.id.localeCompare(b.id));
   return {entries,hash:manifestHash(entries)};
 }
 async function readConsistentManifest() {
-  if (typeof db.runTransaction !== 'function') throw Error('当前云数据库 SDK 不支持事务快照，已停止备份');
-  return db.runTransaction(transaction=>collectManifest(transaction));
+  const before=await collectManifest();
+  const after=await collectManifest();
+  if(before.entries.length!==after.entries.length||before.hash!==after.hash) {
+    throw Error('读取备份清单期间笔记库发生变化，请重新开始');
+  }
+  return after;
 }
 function errorText(error) {
   return [error && error.code,error && error.errCode,error && error.message,error && error.errMsg,String(error || '')].join(' ');
@@ -192,6 +204,10 @@ function restoreKey(backupId, originalId) {
     throw Error('备份来源标识不正确');
   }
   return crypto.createHash('sha256').update(backupId + '|' + originalId).digest('hex').slice(0,32);
+}
+function restoreContentDigest(value) {
+  if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) throw Error('备份笔记内容摘要不正确');
+  return value;
 }
 exports.main = async (event = {}) => {
   const { openid, isAdmin } = verifyAdmin();
@@ -351,18 +367,23 @@ exports.main = async (event = {}) => {
     // 相同备份再次恢复时，可先查询笔记是否已经恢复，避免重复上传图片。
     if (action === 'restoreCheck') {
       const key = restoreKey(event.backupId, event.originalId);
+      const contentDigest=restoreContentDigest(event.contentDigest);
       const id = 'r' + key;
       try {
         const res = await NOTES.doc(id).get();
         if (res.data) {
-          if (res.data.restoreKey === key) return { ok: true, exists: true, id };
-          return fail('恢复记录 ID 冲突，请停止操作');
+          if (res.data.restoreKey !== key) return fail('恢复记录 ID 冲突，请停止操作');
+          // 旧恢复记录没有内容摘要时无法证明内容相同，保守地停止而不是静默跳过。
+          if (!res.data.restoreContentDigest) return fail('已有恢复记录缺少内容摘要，无法安全判定重复，请人工核对');
+          if (res.data.restoreContentDigest !== contentDigest) return fail('同一恢复来源的笔记内容不一致，已停止以避免覆盖');
+          return { ok: true, exists: true, id };
         }
       } catch (e) { if (!isDocumentNotFound(e)) throw e; }
       return { ok: true, exists: false, id };
     }
     if (action === 'restoreNote') {
       const key = restoreKey(event.backupId, event.originalId);
+      const contentDigest=restoreContentDigest(event.contentDigest);
       const id = 'r' + key;
       const clean = normalizeRecord(event.note);
       const times = event.times || {};
@@ -375,8 +396,11 @@ exports.main = async (event = {}) => {
         let existing=null;
         try {existing=(await ref.get()).data;}
         catch(e){if(!isDocumentNotFound(e)) throw e;}
-        if(existing) return existing.restoreKey===key ? {skipped:true} : {conflict:true};
-        await ref.set({data:{...clean,createdAt,updatedAt,restoreKey:key,_backupRevision:backupRevision}});
+        if(existing) {
+          if(existing.restoreKey!==key||!existing.restoreContentDigest||existing.restoreContentDigest!==contentDigest) return {conflict:true};
+          return {skipped:true};
+        }
+        await ref.set({data:{...clean,createdAt,updatedAt,restoreKey:key,restoreContentDigest:contentDigest,_backupRevision:backupRevision}});
         return {skipped:false};
       });
       if(outcome.conflict) return fail('目标记录 ID 被占用，未覆盖原数据');

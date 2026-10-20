@@ -39,6 +39,16 @@ function normalizeNote(note) {
     createdAt:note.createdAt, updatedAt:note.updatedAt, blocks };
 }
 function progress(fn, current, total, label) { if (typeof fn === 'function') fn({ current, total, label }); }
+function restoreContentDigest(note,imagesById) {
+  const core={
+    id:note.id,title:note.title,category:note.category,status:note.status,
+    createdAt:note.createdAt,updatedAt:note.updatedAt,
+    blocks:note.blocks.map(b=>b.type==='image'
+      ? {uid:b.uid,type:b.type,sourceFileID:b.content,sha256:imagesById.get(b.content).sha256}
+      : {uid:b.uid,type:b.type,content:b.content})
+  };
+  return digest.sha256Text(JSON.stringify(core));
+}
 // 不经云函数传送图片字节：云函数只返回短期 URL，手机自行下载到临时文件。
 function promiseDownload(fileID, url) {
   return new Promise((resolve,reject)=>{
@@ -149,7 +159,7 @@ async function exportCloudBackup(onProgress) {
   if (json.length > MAX_JSON_BYTES) throw Error('备份包太大，未生成不完整文件');
   const fileName=`下周七集_云端完整备份_${Date.now()}.json`;
   const filePath=`${wx.env.USER_DATA_PATH}/${fileName}`;
-  // 所有笔记和图片读取完成后再核对一次事务快照；期间有任何增删改都不落盘。
+  // 所有笔记和图片读取完成后再进行双扫描清单核对；期间有任何增删改都不落盘。
   await cloud.request('backupManifestVerify',{manifestHash:manifest.manifestHash,noteCount:manifest.noteCount});
   progress(onProgress,fileIDs.length,fileIDs.length,'正在写入备份文件');
   fs().writeFileSync(filePath,json,'utf8');
@@ -206,9 +216,10 @@ async function restoreCloudBackup(doc, preservePublished, onProgress) {
   const uploaded = new Map();
   for(let i=0;i<doc.notes.length;i++) {
     const note=doc.notes[i];
+    const contentDigest=restoreContentDigest(note,doc.imagesById);
     progress(onProgress,i,doc.notes.length,`正在恢复第 ${i+1}/${doc.notes.length} 篇`);
     try {
-      const check=await cloud.request('restoreCheck',{backupId:doc.backupId,originalId:note.id});
+      const check=await cloud.request('restoreCheck',{backupId:doc.backupId,originalId:note.id,contentDigest});
       if(check.exists) { result.skipped++; continue; }
       const blocks=[];
       for(const b of note.blocks) {
@@ -226,6 +237,7 @@ async function restoreCloudBackup(doc, preservePublished, onProgress) {
         status:preservePublished ? note.status : 'draft', blocks};
       const saved=await cloud.request('restoreNote',{
         backupId:doc.backupId,originalId:note.id,note:record,
+        contentDigest,
         times:{createdAt:note.createdAt,updatedAt:note.updatedAt}
       });
       if(saved.skipped) result.skipped++; else result.created++;
