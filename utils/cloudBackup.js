@@ -104,7 +104,8 @@ async function fetchBackupNote(entry) {
 // Base64 字符数按 4 字符边界拆分，每块解码后 <=192KB。
 async function uploadImageInChunks(img) {
   const chunks=[];
-  const CHUNK_CHARS=192*1024*4/3;
+  // 保留足够 JSON 包装余量，避免部分真机链路按 256KB 请求边界拒绝。
+  const CHUNK_CHARS=144*1024*4/3;
   let saved=false;
   try {
     for(let i=0;i<img.base64.length;i+=CHUNK_CHARS) {

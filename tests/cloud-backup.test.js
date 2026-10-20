@@ -31,7 +31,7 @@ cloud.request=async(action,params)=>{
     return {exists:restored.has(params.originalId)};
   }
   if(action==='restoreImageChunk'){
-    assert(params.base64.length <= 262144,'分块必须小于 256KiB Base64');
+    assert(Buffer.byteLength(JSON.stringify({action,...params}),'utf8') < 256*1024,'完整分块请求必须小于 256KB');
     const id='cloud://env/backup-staging/owner/'+uploadedParts.size+'.bin';
     uploadedParts.set(id,Buffer.from(params.base64,'base64'));
     return {fileID:id};

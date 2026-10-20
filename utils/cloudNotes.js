@@ -113,7 +113,9 @@ async function uploadImage(filePath,meta={}) {
   if(!actualBytes)throw Error('图片为空或无法读取');
   if(actualBytes>MAX_IMAGE_BYTES)throw Error('图片实际内容仍超过 2MB，已停止上传，请裁剪后重试');
   const parts=[];
-  const CHUNK_CHARS=192*1024*4/3;
+  // 144KB 原始字节编码后约 192KB；连同 JSON 包装仍安全低于 256KB。
+  // 2MB 图片最多 15 块，也不会超过服务端允许的 16 块。
+  const CHUNK_CHARS=144*1024*4/3;
   let committed=false;
   try {
     for(let start=0;start<base64.length;start+=CHUNK_CHARS){
