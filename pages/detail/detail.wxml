@@ -23,6 +23,7 @@
       <block wx:for="{{note.blocks}}" wx:for-item="part" wx:for-index="partIndex" wx:key="uid">
         <view wx:if="{{part.type==='text'}}" class="markdown-body">
           <view wx:for="{{part.markdownLines}}" wx:for-item="line" wx:key="key" class="md-line md-{{line.kind}} md-h{{line.level}}">
+            <view wx:if="{{line.kind==='output'}}" class="md-output-label">运行结果 · 纯文本</view>
             <text wx:if="{{line.kind==='list'}}" class="md-marker">{{line.marker}}</text>
             <view class="md-line-content"><text wx:for="{{line.spans}}" wx:for-item="span" wx:key="key" class="md-span md-{{span.kind}}">{{span.value}}</text></view>
           </view>

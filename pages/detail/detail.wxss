@@ -26,6 +26,9 @@
 .md-list .md-line-content { flex:1; }
 .md-strong { color:#263f33; font-weight:700; }
 .md-code { display:inline; margin:0 5rpx; padding:3rpx 8rpx; border-radius:8rpx; background:#edf2ef; color:#315d50; font-family:Menlo,Consolas,Monaco,monospace; font-size:.92em; }
+.md-output { margin:20rpx 0 28rpx; padding:20rpx; border:1rpx solid #dfe7df; border-radius:16rpx; background:#f5f7f3; }
+.md-output-label { margin-bottom:12rpx; color:#728373; font-size:21rpx; }
+.md-output .md-line-content { font-family:Menlo,Consolas,Monaco,monospace; font-size:25rpx; line-height:1.75; }
 /* 独立的 Java 源代码阅读区：行号、轻量高亮、逐行布局 */
 .code-wrap { width:100%; margin:20rpx 0 34rpx; border:1rpx solid #dce7e2; border-radius:20rpx; background:#f3f7f5; overflow:hidden; }
 .code-head { min-height:75rpx; padding:13rpx 19rpx 12rpx 23rpx; display:flex; justify-content:space-between; align-items:center; border-bottom:1rpx solid #dde8e3; }

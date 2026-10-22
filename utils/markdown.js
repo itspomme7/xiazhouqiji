@@ -6,6 +6,16 @@ const MAX_BLOCKS=60;
 function normalize(value){return String(value||'').replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n');}
 function trimBlankLines(value){return value.replace(/^\n+|\n+$/g,'');}
 function imageLinks(value){return String(value||'').match(/!\[[^\]]*\]\([^)]+\)/g)||[];}
+function fenceStart(line){
+  const match=/^ {0,3}(`{3,})([^`]*)$/.exec(line);
+  if(!match)return null;
+  const info=match[2].trim();
+  return {length:match[1].length,language:(info.split(/\s+/)[0]||'').toLowerCase()};
+}
+function fenceEnd(line,fence){
+  const match=/^ {0,3}(`{3,})\s*$/.exec(line);
+  return Boolean(match&&match[1].length>=fence.length);
+}
 
 function splitTextBlock(value){
   const result=[];
@@ -54,7 +64,20 @@ function renderText(value){
     add({kind:'paragraph',spans:parseInline(paragraph.join('\n'))});
     paragraph=[];
   };
-  for(const raw of lines){
+  for(let i=0;i<lines.length;i++){
+    const raw=lines[i];
+    const fence=fenceStart(raw);
+    if(fence){
+      // 围栏内容作为字面文本，绝不将运行结果里的 #、** 或 HTML 当作格式。
+      let end=i+1;
+      while(end<lines.length&&!fenceEnd(lines[end],fence))end++;
+      if(fence.language==='text'&&end<lines.length){
+        flush();
+        add({kind:'output',spans:[{kind:'text',value:lines.slice(i+1,end).join('\n'),key:0}]});
+      }else paragraph.push(...lines.slice(i,Math.min(end+1,lines.length)));
+      i=end;
+      continue;
+    }
     const heading=/^(#{1,3})\s+(.+?)\s*$/.exec(raw);
     const unordered=/^\s*[-+*]\s+(.+)$/.exec(raw);
     const ordered=/^\s*(\d+)[.)]\s+(.+)$/.exec(raw);
@@ -90,19 +113,27 @@ function parseImport(value,options={}){
     for(const content of splitTextBlock(value))blocks.push({type:'text',content});
   };
   for(let i=0;i<lines.length;i++){
-    if(/^\s{0,3}```\s*java\s*$/i.test(lines[i])){
+    const fence=fenceStart(lines[i]);
+    if(fence){
+      const opening=lines[i];
       flushText();
       const code=[];
       let closed=false;
       for(i=i+1;i<lines.length;i++){
-        if(/^\s{0,3}```\s*$/.test(lines[i])){closed=true;break;}
+        if(fenceEnd(lines[i],fence)){closed=true;break;}
         code.push(lines[i]);
       }
-      if(!closed)throw Error('Java 代码块缺少结束的 ```');
+      if(!closed)throw Error('代码块缺少结束的反引号围栏');
       const content=code.join('\n');
-      if(!content.trim())throw Error('Java 代码块不能为空');
-      if(content.length>25000)throw Error('单个 Java 代码块超过 25000 个字符，请拆分后导入');
-      blocks.push({type:'code',content});
+      if(fence.language==='java'){
+        if(!content.trim())throw Error('Java 代码块不能为空');
+        if(content.length>25000)throw Error('单个 Java 代码块超过 25000 个字符，请拆分后导入');
+        blocks.push({type:'code',content});
+      }else{
+        const literal=[opening,...code,lines[i]].join('\n');
+        if(literal.length>MAX_BLOCK_CHARS)throw Error('单个文本围栏超过 24000 个字符，请拆分后导入');
+        blocks.push({type:'text',content:literal});
+      }
     }else text.push(lines[i]);
   }
   flushText();
