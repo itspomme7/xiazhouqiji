@@ -1,8 +1,9 @@
 const cloud=require('../../utils/cloudNotes');
 const localDraft=require('../../utils/editorDraft');
+const markdown=require('../../utils/markdown');
 function uid(){return 'b'+Date.now()+Math.floor(Math.random()*100000);}
 Page({
- data:{id:'',createRequestId:'',isEditing:false,title:'',category:'Java基础',blocks:[],suggestions:['Java基础','条件判断','代码案例','学习截图','其他'],uploading:false,saving:false,allowEditing:false},
+ data:{id:'',createRequestId:'',isEditing:false,title:'',category:'Java基础',blocks:[],suggestions:['Java基础','条件判断','代码案例','学习截图','其他'],uploading:false,saving:false,allowEditing:false,showMarkdownImport:false,markdownInput:''},
  async onLoad(options){
   try {
    await cloud.loadNotes();
@@ -45,6 +46,38 @@ Page({
   wx.showToast({title:next==='code'?'已转为代码块':'已转为文字块',icon:'none'});
  },
  removeBlock(e){const index=Number(e.currentTarget.dataset.index);this.setData({blocks:this.data.blocks.filter((_,i)=>i!==index)});this.scheduleDraft();},
+ toggleMarkdownImport(){
+  if(!this.data.allowEditing||this.data.uploading||this.data.saving)return;
+  this.setData({showMarkdownImport:!this.data.showMarkdownImport});
+ },
+ markdownInput(e){this.setData({markdownInput:e.detail.value});},
+ cancelMarkdownImport(){
+  if(!String(this.data.markdownInput||'').trim()){this.setData({showMarkdownImport:false});return;}
+  wx.showModal({title:'放弃这次导入？',content:'尚未导入的 Markdown 将被清空，笔记原有内容不会变化。',confirmText:'放弃',success:r=>{if(r.confirm)this.setData({showMarkdownImport:false,markdownInput:''});}});
+ },
+ importMarkdown(){
+  if(!this.data.allowEditing||this.data.uploading||this.data.saving)return;
+  let parsed;
+  try{parsed=markdown.parseImport(this.data.markdownInput,{useFirstHeadingAsTitle:!String(this.data.title||'').trim()});}
+  catch(e){wx.showModal({title:'Markdown 无法导入',content:e.message||'请检查格式',showCancel:false});return;}
+  const existing=(this.data.blocks||[]).filter(b=>b&&(['image'].includes(b.type)||String(b.content||'').trim()));
+  if(existing.length+parsed.blocks.length>60){wx.showModal({title:'内容块过多',content:'现有内容加上导入内容将超过 60 个内容块，请先拆分文章。',showCancel:false});return;}
+  const s=parsed.stats;
+  const parts=[`识别到 ${s.headings} 个标题、${s.lists} 个列表项、${s.codeBlocks} 个 Java 代码块。`];
+  if(parsed.title)parts.push(`将使用“${parsed.title}”作为笔记标题。`);
+  if(existing.length)parts.push(`导入内容将追加到现有 ${existing.length} 个内容块之后，不会覆盖。`);
+  else parts.push('当前空白正文将替换为导入内容。');
+  if(parsed.imageLinks.length)parts.push(`发现 ${parsed.imageLinks.length} 个 Markdown 图片链接：不会自动上传，将保留为文字，请稍后手动添加图片。`);
+  wx.showModal({
+   title:'确认导入 Markdown',content:parts.join('\n'),confirmText:existing.length?'追加导入':'确认导入',
+   success:r=>{if(!r.confirm)return;
+    const imported=parsed.blocks.map(b=>({uid:uid(),type:b.type,content:b.content}));
+    this.setData({blocks:[...existing,...imported],title:String(this.data.title||'').trim()?this.data.title:(parsed.title||this.data.title),showMarkdownImport:false,markdownInput:''});
+    this.scheduleDraft();
+    wx.showToast({title:`已导入 ${imported.length} 个内容块`,icon:'none'});
+   }
+  });
+ },
  addImage(){
   if(this.data.uploading||!this.data.allowEditing)return;
   wx.chooseMedia({count:9,mediaType:['image'],sourceType:['album','camera'],sizeType:['compressed'],success:async res=>{

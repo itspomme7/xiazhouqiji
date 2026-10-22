@@ -4,6 +4,7 @@ const storage=new Map();
 let definition=null;
 let saveMode='offline';
 let modalTitles=[];
+let modalCalls=[];
 let restoreConfirm=true;
 const existingNote={id:'note_existing',title:'云端原题',category:'Java基础',createdAt:1,blocks:[{uid:'t1',type:'text',content:'云端原文'}]};
 const cloud={
@@ -12,7 +13,7 @@ const cloud={
 };
 global.wx={
   getStorageSync:key=>storage.has(key)?storage.get(key):'',setStorageSync:(key,value)=>storage.set(key,JSON.parse(JSON.stringify(value))),removeStorageSync:key=>storage.delete(key),
-  showModal:options=>{modalTitles.push(options.title);const confirm=options.title==='发现未保存内容'?restoreConfirm:true;if(options.success)options.success({confirm,cancel:!confirm});},
+  showModal:options=>{modalTitles.push(options.title);modalCalls.push(options);const confirm=options.title==='发现未保存内容'?restoreConfirm:true;if(options.success)options.success({confirm,cancel:!confirm});},
   showLoading(){},hideLoading(){},showToast(){},redirectTo(){},setNavigationBarTitle(){},navigateBack(){}
 };
 global.Page=value=>{definition=value;};
@@ -60,6 +61,27 @@ async function run(){
   const promptsAfterDiscard=modalTitles.filter(x=>x==='发现未保存内容').length;
   editor=page();await editor.onLoad({id:existingNote.id});editor.onUnload();
   assert.strictEqual(modalTitles.filter(x=>x==='发现未保存内容').length,promptsAfterDiscard,'放弃后无新编辑不得再次提示');
-  console.log('编辑器页面测试通过：未修改不提示、修改后恢复、恢复后保留、主动放弃不反复提示、断网与成功清理。');
+
+  // 新建笔记导入：空白占位块被替换，首行一级标题自动填写标题。
+  storage.clear();modalCalls=[];restoreConfirm=true;
+  editor=page();await editor.onLoad({});
+  editor.markdownInput({detail:{value:'# 导入标题\n\n正文含 **重点**。\n\n```java\n    int n = 1;\n```'}});
+  editor.importMarkdown();
+  assert.strictEqual(editor.data.title,'导入标题');
+  assert.strictEqual(editor.data.blocks.length,2);assert.strictEqual(editor.data.blocks[1].type,'code');
+  assert.strictEqual(editor.data.blocks[1].content,'    int n = 1;','导入 Java 代码必须保留缩进');
+  assert(modalCalls.some(x=>x.title==='确认导入 Markdown'));
+
+  // 编辑已有笔记导入：保留原题与原正文，只在末尾追加；图片链接必须明确提示。
+  storage.clear();modalCalls=[];
+  editor=page();await editor.onLoad({id:existingNote.id});
+  editor.markdownInput({detail:{value:'# 外来标题\n\n![截图](https://example.test/a.png)\n\n追加正文'}});
+  editor.importMarkdown();
+  assert.strictEqual(editor.data.title,'云端原题','已填写标题不得被 Markdown 覆盖');
+  assert.strictEqual(editor.data.blocks[0].content,'云端原文','原正文不得被覆盖');
+  assert(editor.data.blocks.length>1,'导入内容必须追加到原正文之后');
+  const confirm=modalCalls.find(x=>x.title==='确认导入 Markdown');
+  assert(confirm&&/追加/.test(confirm.content)&&/图片链接/.test(confirm.content),'确认框必须说明追加行为和图片不上传');
+  console.log('编辑器页面测试通过：草稿保护、Markdown 标题导入、Java 缩进、已有内容追加及图片提示。');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,5 +1,6 @@
 const store = require('../../utils/store');
 const cloud = require('../../utils/cloudNotes');
+const markdown = require('../../utils/markdown');
 
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -24,16 +25,6 @@ function wrapLines(ctx, text, maxWidth, maxLines) {
     }
     result.push(line);
     if (result.length >= maxLines) return result;
-  }
-  return result;
-}
-// 这里只生成 Markdown 文本；图片仍存放在微信云存储，不能当作完整离线备份。
-function noteToMarkdown(note) {
-  let result = `# ${note.title}\n\n分类：${note.category}\n\n`;
-  for (const block of note.blocks || []) {
-    if (block.type === 'text') result += `${block.content}\n\n`;
-    if (block.type === 'code') result += `\`\`\`java\n${block.content}\n\`\`\`\n\n`;
-    if (block.type === 'image') result += `[云端学习截图：${block.content}]\n\n`;
   }
   return result;
 }
@@ -74,6 +65,7 @@ function prepareBlocks(blocks) {
       return { ...block, content: normalized, codeLines:lines, codeLineCount:lines.length, codeWidth };
     }
     if (block.type === 'image') return { ...block, imageIndex: ++imageIndex };
+    if (block.type === 'text') return { ...block, markdownLines:markdown.renderText(block.content) };
     return block;
   });
 }
@@ -134,7 +126,7 @@ Page({
     const note = this.data.note;
     if (!note) return;
     wx.setClipboardData({
-      data: noteToMarkdown(note),
+      data: markdown.noteToMarkdown(note),
       success: () => wx.showToast({
         title: this.data.imageCount ? '已复制，图片仅保留云端引用' : 'Markdown 已复制',
         icon: 'none',

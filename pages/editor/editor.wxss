@@ -12,3 +12,14 @@
 .code-editor-dot{display:inline-block;width:12rpx;height:12rpx;border-radius:50%;background:#70a789;margin-right:10rpx}
 .code-input{display:block;background:#fff;box-sizing:border-box;line-height:1.65;white-space:pre-wrap;overflow-wrap:normal;word-break:normal;border:1rpx solid #dbe5e2;min-height:210rpx;width:100%;padding:18rpx;font-family:Menlo,Consolas,Monaco,monospace;font-size:24rpx;color:#263b43}
 .code-editor-help{color:#758980;font-size:21rpx;line-height:1.55;padding:13rpx 6rpx 4rpx}
+.markdown-entry{display:flex;align-items:center;justify-content:space-between;gap:18rpx;margin:2rpx 0 18rpx;padding:20rpx 19rpx;border:1rpx solid #dfe9df;border-radius:18rpx;background:#f3f7f1}
+.markdown-entry-title{font-size:25rpx;font-weight:650;color:#345c40;margin-bottom:7rpx}
+.markdown-entry-sub{font-size:20rpx;line-height:1.55;color:#7b8d80}
+.markdown-entry-action{flex:none;color:#4f7a59;font-size:22rpx;font-weight:600}
+.markdown-panel{margin:-5rpx 0 21rpx;padding:18rpx;border-radius:18rpx;background:#f7f9f6;border:1rpx solid #e4ebe2}
+.markdown-input{display:block;width:100%;height:360rpx;padding:18rpx;background:#fff;border:1rpx solid #dfe6dd;border-radius:14rpx;font-family:Menlo,Consolas,Monaco,monospace;font-size:23rpx;line-height:1.65;color:#33423b;box-sizing:border-box}
+.markdown-help{font-size:20rpx;color:#7d8b82;line-height:1.6;padding:13rpx 3rpx}
+.markdown-actions{display:flex;justify-content:flex-end;align-items:center;gap:17rpx}
+.markdown-cancel,.markdown-confirm{min-height:62rpx;padding:14rpx 20rpx;border-radius:14rpx;font-size:22rpx;display:flex;align-items:center;justify-content:center}
+.markdown-cancel{color:#77827b;background:#edf0ec}
+.markdown-confirm{color:#fff;background:#658e6c}
