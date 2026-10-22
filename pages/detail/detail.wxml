@@ -21,7 +21,12 @@
 
     <view class="article card">
       <block wx:for="{{note.blocks}}" wx:for-item="part" wx:for-index="partIndex" wx:key="uid">
-        <view wx:if="{{part.type==='text'}}" class="paragraph">{{part.content}}</view>
+        <view wx:if="{{part.type==='text'}}" class="markdown-body">
+          <view wx:for="{{part.markdownLines}}" wx:for-item="line" wx:key="key" class="md-line md-{{line.kind}} md-h{{line.level}}">
+            <text wx:if="{{line.kind==='list'}}" class="md-marker">{{line.marker}}</text>
+            <view class="md-line-content"><text wx:for="{{line.spans}}" wx:for-item="span" wx:key="key" class="md-span md-{{span.kind}}">{{span.value}}</text></view>
+          </view>
+        </view>
         <view wx:if="{{part.type==='code'}}" class="code-wrap">
           <view class="code-head">
             <view class="code-label"><view class="code-light"></view><text class="code-lang">Java</text><text class="code-meta">{{part.codeLineCount}} 行</text></view>

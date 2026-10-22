@@ -3,6 +3,15 @@
  <view class="form-card card"><view class="field-title">标题</view><input class="text-input" value="{{title}}" placeholder="例如：Java 的 if 条件判断" maxlength="80" bindinput="titleInput"/></view>
  <view class="form-card card"><view class="field-title">分类</view><input class="text-input" value="{{category}}" placeholder="输入分类，如 Java基础" maxlength="20" bindinput="categoryInput"/><view class="chip-row"><view class="chip" wx:for="{{suggestions}}" wx:key="*this" data-value="{{item}}" bindtap="quickCategory">{{item}}</view></view></view>
  <view class="form-card card"><view class="row between"><view class="field-title">正文内容</view><view class="hint">可自由组合文字、代码、图片</view></view>
+  <view class="markdown-entry" bindtap="toggleMarkdownImport">
+   <view><view class="markdown-entry-title">导入 Markdown</view><view class="markdown-entry-sub">粘贴整篇内容，自动识别标题、列表、粗体与 Java 代码块</view></view>
+   <view class="markdown-entry-action">{{showMarkdownImport?'收起':'开始导入'}}</view>
+  </view>
+  <view wx:if="{{showMarkdownImport}}" class="markdown-panel">
+   <textarea class="markdown-input" value="{{markdownInput}}" bindinput="markdownInput" placeholder="# 笔记标题&#10;&#10;正文、**重点**、`行内代码`&#10;&#10;```java&#10;public class Main {}&#10;```" maxlength="-1"/>
+   <view class="markdown-help">导入前会显示解析结果。已有正文只会追加，不会无提示覆盖；图片链接不会自动上传。</view>
+   <view class="markdown-actions"><view class="markdown-cancel" bindtap="cancelMarkdownImport">取消</view><view class="markdown-confirm" bindtap="importMarkdown">解析并确认</view></view>
+  </view>
   <view class="block" wx:for="{{blocks}}" wx:for-item="part" wx:for-index="idx" wx:key="uid">
    <view class="row between block-head">
     <text class="block-kind {{part.type==='code'?'block-kind-code':''}}">{{part.type==='text'?'文字块':part.type==='code'?'Java 代码块':'图片'}}</text>

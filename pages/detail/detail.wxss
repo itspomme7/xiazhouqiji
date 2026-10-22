@@ -10,8 +10,22 @@
 .date { color: #7a8b82; font-size: 23rpx; line-height: 1.6; }
 .status { color: #997c50; }
 .article { padding: 32rpx 25rpx; }
-.paragraph { font-size: 29rpx; color: #485b51; line-height: 1.88; white-space: pre-wrap; word-break: break-word; margin-bottom: 28rpx; }
-.paragraph:last-child { margin-bottom: 0; }
+.markdown-body { margin-bottom:28rpx; color:#485b51; }
+.markdown-body:last-child { margin-bottom:0; }
+.md-line { word-break:break-word; }
+.md-line:first-child { margin-top:0; }
+.md-line:last-child { margin-bottom:0; }
+.md-line-content { min-width:0; white-space:pre-wrap; word-break:break-word; }
+.md-paragraph { font-size:29rpx; line-height:1.88; margin:0 0 24rpx; }
+.md-heading { color:#244535; font-weight:700; line-height:1.5; margin:34rpx 0 17rpx; }
+.md-h1 { font-size:36rpx; }
+.md-h2 { font-size:32rpx; padding-left:13rpx; border-left:6rpx solid #87a98a; }
+.md-h3 { font-size:29rpx; color:#3d5d4c; }
+.md-list { display:flex; align-items:flex-start; gap:13rpx; font-size:28rpx; line-height:1.78; margin:7rpx 0; padding-left:8rpx; }
+.md-marker { flex:none; min-width:50rpx; color:#62836a; font-weight:650; text-align:right; }
+.md-list .md-line-content { flex:1; }
+.md-strong { color:#263f33; font-weight:700; }
+.md-code { display:inline; margin:0 5rpx; padding:3rpx 8rpx; border-radius:8rpx; background:#edf2ef; color:#315d50; font-family:Menlo,Consolas,Monaco,monospace; font-size:.92em; }
 /* 独立的 Java 源代码阅读区：行号、轻量高亮、逐行布局 */
 .code-wrap { width:100%; margin:20rpx 0 34rpx; border:1rpx solid #dce7e2; border-radius:20rpx; background:#f3f7f5; overflow:hidden; }
 .code-head { min-height:75rpx; padding:13rpx 19rpx 12rpx 23rpx; display:flex; justify-content:space-between; align-items:center; border-bottom:1rpx solid #dde8e3; }
